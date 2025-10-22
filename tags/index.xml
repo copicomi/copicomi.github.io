@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on Anri’s blog</title>
+    <link>https://anri.github.io/tags/</link>
+    <description>Recent content in Tags on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 22 Oct 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://anri.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Cpp</title>
+      <link>https://anri.github.io/tags/cpp/</link>
+      <pubDate>Wed, 22 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://anri.github.io/tags/cpp/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Db</title>
+      <link>https://anri.github.io/tags/db/</link>
+      <pubDate>Wed, 22 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://anri.github.io/tags/db/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Experience</title>
+      <link>https://anri.github.io/tags/experience/</link>
+      <pubDate>Wed, 22 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://anri.github.io/tags/experience/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Go</title>
+      <link>https://anri.github.io/tags/go/</link>
+      <pubDate>Sun, 14 Sep 2025 00:00:00 +0000</pubDate>
+      <guid>https://anri.github.io/tags/go/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Raft</title>
+      <link>https://anri.github.io/tags/raft/</link>
+      <pubDate>Sun, 14 Sep 2025 00:00:00 +0000</pubDate>
+      <guid>https://anri.github.io/tags/raft/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>
