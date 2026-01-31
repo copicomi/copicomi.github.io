@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    重读 xv6（VI） | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="重读 xv6（VI）">
+  <meta property="og:description" content="xv6 文件系统">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-10-31T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-10-31T00:00:00+00:00">
+    <meta property="article:tag" content="C">
+    <meta property="article:tag" content="Xv6">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vi/">重读 xv6（VI）</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">重读 xv6（VI）</h1>
+        <p class="single-summary">xv6 文件系统</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-10-31T00:00:00&#43;00:00">October 31, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="八">
+  八
+  <a class="anchor" href="#%e5%85%ab">#</a>
+</h1>
+<p>现在我们讨论文件系统，分七层抽象：</p>
+<ol>
+<li>文件描述符，作为 Unix 对文件、设备等资源的抽象</li>
+<li>路径、目录、inode，用于描述文件位置</li>
+<li>日志层，用于崩溃恢复，提供事务服务</li>
+<li>buffer，缓存区，减少磁盘 IO</li>
+<li>disk，存储文件的物理媒介</li>
+</ol>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 618; --h: 523;">
+        <img loading="lazy" alt="&ldquo;文件系统层次&rdquo;" src="/posts/%E9%87%8D%E8%AF%BB-xv6/vi/assets/layers.png" width="618" height="523">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 文件系统层次 </figcaption>
+    </div>
+    
+</figure>
+</p>
+<p>我们采用自底向上的顺序进行分析</p>
+<h2 class="heading" id="buffer-层">
+  buffer 层
+  <a class="anchor" href="#buffer-%e5%b1%82">#</a>
+</h2>
+<p><em><strong>源码文件：<code>bio.c</code></strong></em></p>
+<p><code>bufferCache</code> 的结构很简单</p>
+<ol>
+<li>固定大小的 <code>block</code> 缓冲区</li>
+<li><code>block</code> 内部存字节，记录对应的磁盘位置</li>
+<li>通过 <code>virtio_disk</code> 驱动与下一层 <code>disk</code> 交互</li>
+</ol>
+<p><code>buffer</code> 填满时，用 LRU 进行汰换，因此采用双向链表组织 <code>block</code>，同时用 <code>pin/unpin</code> 为每个块维护引用次数</p>
+<blockquote>
+<p><code>buffer</code> 为上一层提供了读写封装，用户只需要调用 <code>bread/bwrite</code> 即可，<strong>与磁盘的 IO 交互</strong>是透明的</p>
+</blockquote>
+<blockquote>
+<p>注意这里，每个 <code>buffer block</code> 可能会面对多个进程的并发读写，因此需要锁控制，可以采用类似之前 <code>kalloc</code> 的方法，利用哈希映射减小锁粒度</p>
+</blockquote>
+<h2 class="heading" id="log-层">
+  log 层
+  <a class="anchor" href="#log-%e5%b1%82">#</a>
+</h2>
+<p><em><strong>源码文件：<code>log.c</code></strong></em></p>
+<p>日志层的目的是实现 WAL，写入磁盘前先将操作日志记录下来，崩溃时可以恢复</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 880; --h: 216;">
+        <img loading="lazy" alt="磁盘布局" src="/posts/%E9%87%8D%E8%AF%BB-xv6/vi/assets/file-block.png" width="880" height="216">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 磁盘布局 </figcaption>
+    </div>
+    
+</figure>
+</p>
+<p>多进程进行并发读写时，log层会记录当前的事务计数，直到所有事务都结束时，才会进行 commit，因此 <em><strong>xv6</strong></em> 一次提交包含多个事务的内容</p>
+<p>log 记录的信息：</p>
+<ol>
+<li>当前事务计数</li>
+<li>log 涉及的 block 表</li>
+<li>log 块在磁盘上的位置</li>
+</ol>
+<p>log 层读写流程如下：</p>
+<ol>
+<li>启动事务后，<strong>先写入 buffer</strong>，在 block 表中记录本次写入的 buffer 位置，钉住该块防止汰换</li>
+<li>当允许 commit 后，将数据从 buffer <strong>复制到磁盘上的 log block</strong></li>
+<li>接着，向 log block <strong>写入本次 commit 的元数据</strong>，指示 log 块数据完好</li>
+<li>最后才是从 log block <strong>向真正的磁盘地址写入数据</strong></li>
+<li>抹除 log block 中的元数据，指示 <strong>commit 结束</strong>，准备接收新 log</li>
+</ol>
+<p>分成这几步，目的是为崩溃恢复提供可靠信息</p>
+<blockquote>
+<p>log 为上层提供了 <code>beginop/endop</code> 逻辑与 <code>log_write</code> 接口，用户只需要启用事务，并写入日志即可</p>
+<p>这里 log 层隐藏了<strong>延时 commit 到磁盘</strong>的过程，用户只需要写入，而不关心真正完成的时间</p>
+</blockquote>
+<h2 class="heading" id="inode-层">
+  inode 层
+  <a class="anchor" href="#inode-%e5%b1%82">#</a>
+</h2>
+<p><em><strong>源码文件：<code>fs.c</code></strong></em></p>
+<p><code>buffer</code> 与 <code>log</code> 仅仅是磁盘 IO 的<strong>行为抽象</strong>，只是隐藏了一些与磁盘交互的细节，换言之，我们目前对磁盘空间并没有任何的抽象，<code>inode</code> 层就是解决这一问题的</p>
+<blockquote>
+<p>我认为 <code>buffer</code>、<code>log</code> 应该是与 <code>inode</code> 层互相独立的抽象，<code>inode</code> 只是调用这些接口与磁盘进行交互，在概念上不存在上下层的关系</p>
+</blockquote>
+<p>该层分三块：</p>
+<ol>
+<li><code>block</code>，对磁盘上字节块的抽象</li>
+<li><code>inode</code>，对文件的抽象</li>
+<li><code>path</code>，对文件树的抽象</li>
+</ol>
+<p><code>block</code> 层提供 <code>balloc/bfree</code> 接口，通过<strong>位图</strong>管理磁盘 <code>block</code> 资源，本质与 <code>kalloc</code> 的链表没有区别</p>
+<p><code>inode</code> 层记录 <code>file</code> 的长度、类型、位置等元数据</p>
+<ul>
+<li><code>inode</code> 存储在两个位置，磁盘上的 <code>iblock</code> 与内存中的 <code>itable</code> 缓存</li>
+<li>读写 <code>inode</code> 的流程与 <code>buffer</code> 的设计类似</li>
+<li>这里实现管理 <code>inode</code> 资源的方式，其实就是遍历 <code>table</code>，与 <code>proctable</code> 的进程资源管理没区别</li>
+</ul>
+<p><code>inode</code> 用 <code>addrs[]</code> 存储文件 <code>block</code> 的地址，在此基础上设计了两个辅助函数：</p>
+<ol>
+<li><code>bmap</code> 为给定的 <code>file block</code> 号查找到磁盘地址的映射，调用 <code>balloc</code> 接口获取资源</li>
+<li><code>itrunc</code> 则相反，用于递归释放 <code>inode</code> 占用的 <code>block</code> 资源映射，调用 <code>bfree</code> 接口</li>
+</ol>
+<blockquote>
+<p>这两个函数共用一套逻辑，我们这里讨论下多层映射的设计</p>
+<p>实际上，这里的映射与虚拟内存中用到的多级页表一样，只不过 <code>inode</code> 使用的 <code>key</code> 是内部的 block 编号，而不是绝对地址<br>
+因此 <code>bmap</code> 本质是对 <code>block num</code> 进行了分类讨论，大于一个临界值，我们就认为这个地址采用了多层映射，就通过预留的地址递归查询下去</p>
+<p><em><strong>xv6</strong></em> 配置 <code>NDIRECT = 11, NINDIRECT = 256</code>，借此实现大文件 <code>inode</code><br>
+但这也仅仅是一层映射，我们可以再多设计一层 <code>NSUPER = 256</code> ，从而实现超大文件的存储映射</p>
+</blockquote>
+<p>借助 <code>bmap</code> 接口，系统隐藏了 <strong><code>inode</code> 偏移量与物理地址</strong>的映射关系</p>
+<p>因此我们现在可以直接操控 <code>inode</code> 的文件内容，通过偏移量进行内存操作</p>
+<p>在此基础上，实现读写文件的 <code>readi/writei</code> 接口，<code>readi</code> 流程：</p>
+<ol>
+<li>以 <code>block size</code> 为尺度，枚举偏移量</li>
+<li>调用 <code>bmap</code> 获取 <code>block</code> 在磁盘上的真实地址映射</li>
+<li>调用 <code>bread</code> 获取 <code>block</code> 的内容缓存</li>
+<li>对 <code>buffer</code> 调用 <code>copyout</code>，将内容从 <code>buffer</code> 写入到用户空间</li>
+</ol>
+<p>这层接口就完成了 <strong>用户空间到磁盘文件</strong> 的读写抽象</p>
+<h2 class="heading" id="path-层">
+  path 层
+  <a class="anchor" href="#path-%e5%b1%82">#</a>
+</h2>
+<p>既然已经完成了直接读写 <code>file</code> 的抽象，<code>path</code> 的实现就好理解了，利用 <code>inode</code> 存储 <code>filename</code> 与 <code>childfile</code> 即可</p>
+<p>目录 <code>directory</code> 实现：</p>
+<ol>
+<li><code>dirent</code> 结构，存储 <code>inode</code> 号与 <code>filename</code></li>
+<li>调用 <code>readi</code> 对目录文件进行读写，依次读出所有 <code>filename</code></li>
+<li>查找需要的 <code>inode</code>，进行处理即可</li>
+</ol>
+<p>在此基础上，加一些字符串处理，再递归查询 <code>filename</code>，就是 <code>path</code> 了</p>
+<blockquote>
+<p>软连接也好，硬链接也好，本质上都是 <code>inode</code> 与 <code>filename</code> 之间的映射关系，没有 <code>path</code> 的层级映射，文件就只是磁盘上散落的单层 <code>inode</code> 而已</p>
+</blockquote>
+<h2 class="heading" id="文件描述符">
+  文件描述符
+  <a class="anchor" href="#%e6%96%87%e4%bb%b6%e6%8f%8f%e8%bf%b0%e7%ac%a6">#</a>
+</h2>
+<p><em><strong>源码文件：<code>file.c</code></strong></em></p>
+<p>在 <code>file</code> 之上，我们统一了<strong>文件描述符</strong>这一抽象，用来描述：</p>
+<ol>
+<li>文件 <code>inode</code></li>
+<li>管道 <code>pipe</code></li>
+<li>设备 <code>device</code></li>
+</ol>
+<p><code>file</code> 对象维护以下信息：</p>
+<ol>
+<li>描述类型</li>
+<li>当前偏移量</li>
+<li>读写权限</li>
+<li>对应资源的访问地址</li>
+</ol>
+<p>我们采用 <code>file table</code> 管理 <code>file</code> 资源，与之前的实现一致</p>
+<p>而在读写时，我们先检查 <code>file-&gt;type</code> 再进行处理，即可对上层屏蔽 <code>file</code> 的具体类型</p>
+<blockquote>
+<p>明确 <code>path</code> 的查找原理后，我们便可以实现符号链接了，只需要增加一个 <code>F_SYMBOL</code> 类型，存储对应的 <code>pathname</code> 、<code>symbol</code>、<code>inode</code> 映射，再进行递归查找即可</p>
+</blockquote>
+<p>在此基础上，我们提供了以下接口：</p>
+<ul>
+<li><code>fileread / filewrite</code> 读写</li>
+<li><code>filestat</code> 状态</li>
+<li><code>filealloc / fileclose</code> 资源管理</li>
+</ul>
+<blockquote>
+<p>调用 <code>filewrite</code> 时，必须要调用 <code>begin_op</code> 启用 <code>log</code> 层，包裹下层读写操作，因为已经是文件系统的最上层抽象了</p>
+</blockquote>
+<h2 class="heading" id="重新启动">
+  重新启动
+  <a class="anchor" href="#%e9%87%8d%e6%96%b0%e5%90%af%e5%8a%a8">#</a>
+</h2>
+<p>加载已有的文件系统时，如何得知 <code>inode block</code>、<code>bitmap block</code> 的位置呢，就是通过预先配置的 <code>superblock</code> 所记录的偏移量进行初始化</p>
+<p>那么现在我们就有能力得知 <em><strong>xv6</strong></em> 启动时，是如何初始化文件系统的</p>
+<ol>
+<li><code>binit</code> 初始化 <code>buffer</code> 的双向链表</li>
+<li><code>iinit</code> 初始化 <code>inode table</code>，用于管理 <code>inode</code> 缓存</li>
+<li><code>fileinit</code> 初始化 <code>file table</code> 表</li>
+<li>第一次运行 <code>forkret</code> 时调用 <code>fsinit</code>，从磁盘上读出 <code>superblock</code>，调用 <code>initlog</code> 恢复先前崩溃中断的 <code>log</code></li>
+</ol>
+<blockquote>
+<p>我们将 <code>superblock</code> 固定分配到 <code>block 1</code> ，因此可以直接从磁盘上读出信息<br>
+此时将 <code>superblock</code> 加载到内存对象中，之后就不需要反复读取</p>
+</blockquote>
+<p>配置好 <code>inode</code> 工作的环境，存储在磁盘上的 <code>path</code> 也就成功投入使用</p>
+<blockquote>
+<p><em><strong>xv6</strong></em> 存储在磁盘上的对象，如 <code>dinode</code>、<code>dirent</code>，全部都是固定大小的，方便计算偏移量</p>
+</blockquote>
+<hr>
+<p>这节我们分析了整个文件系统的层级结构，理解 <em><strong>xv6</strong></em> 是如何将磁盘 IO 进行不断的抽象封装，进而实现精简接口的，认识到每层封装的目的性，这是最有价值的部分</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/v/">
+                        重读 xv6（V）
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vii/">
+                        重读 xv6（VII）
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>
