@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Xv6 Reading on Anri’s blog</title>
+    <link>https://copicomi.github.io/categories/xv6-reading/</link>
+    <description>Recent content in Xv6 Reading on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 01 Nov 2025 02:25:04 +0800</lastBuildDate>
+    <atom:link href="https://copicomi.github.io/categories/xv6-reading/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>重读 xv6（VII）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/</link>
+      <pubDate>Sat, 01 Nov 2025 02:25:04 +0800</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/</guid>
+      <description>&lt;code&gt;$ echo hello | cat &amp;gt; hello.txt&lt;/code&gt;</description>
+    </item>
+    <item>
+      <title>重读 xv6（VI）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/</link>
+      <pubDate>Fri, 31 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/</guid>
+      <description>xv6 文件系统</description>
+    </item>
+    <item>
+      <title>重读 xv6（V）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/</link>
+      <pubDate>Wed, 29 Oct 2025 19:23:45 +0800</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/</guid>
+      <description>xv6 驱动、锁</description>
+    </item>
+    <item>
+      <title>重读 xv6（IV）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iv/</link>
+      <pubDate>Wed, 29 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iv/</guid>
+      <description>xv6 Trap 与系统调用</description>
+    </item>
+    <item>
+      <title>重读 xv6（III）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iii/</link>
+      <pubDate>Tue, 28 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iii/</guid>
+      <description>xv6 虚拟内存</description>
+    </item>
+    <item>
+      <title>重读 xv6（II）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/</link>
+      <pubDate>Mon, 27 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/</guid>
+      <description>xv6 进程机制</description>
+    </item>
+    <item>
+      <title>重读 xv6（I）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/</link>
+      <pubDate>Sun, 26 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/</guid>
+      <description>xv6 启动与概览</description>
+    </item>
+  </channel>
+</rss>

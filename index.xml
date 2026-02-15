@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Home on Anri’s blog</title>
+    <link>https://copicomi.github.io/</link>
+    <description>Recent content in Home on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 14 Feb 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://copicomi.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Leveldb 阅读记录</title>
+      <link>https://copicomi.github.io/posts/leveldb-%E6%BA%90%E7%A0%81%E7%AC%94%E8%AE%B0/</link>
+      <pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/leveldb-%E6%BA%90%E7%A0%81%E7%AC%94%E8%AE%B0/</guid>
+      <description>Leveldb 源码笔记</description>
+    </item>
+    <item>
+      <title>Paxos Made Simple</title>
+      <link>https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/</link>
+      <pubDate>Fri, 30 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/</guid>
+      <description>朴素 paxos 算法介绍</description>
+    </item>
+    <item>
+      <title>S081 论文拾遗</title>
+      <link>https://copicomi.github.io/posts/pager-reading/s081/1/</link>
+      <pubDate>Tue, 11 Nov 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/pager-reading/s081/1/</guid>
+      <description>虚拟机、RCU、微内核、meltdown</description>
+    </item>
+    <item>
+      <title>重读 xv6（VII）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/</link>
+      <pubDate>Sat, 01 Nov 2025 02:25:04 +0800</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/</guid>
+      <description>&lt;code&gt;$ echo hello | cat &amp;gt; hello.txt&lt;/code&gt;</description>
+    </item>
+    <item>
+      <title>重读 xv6（VI）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/</link>
+      <pubDate>Fri, 31 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vi/</guid>
+      <description>xv6 文件系统</description>
+    </item>
+    <item>
+      <title>重读 xv6（V）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/</link>
+      <pubDate>Wed, 29 Oct 2025 19:23:45 +0800</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/</guid>
+      <description>xv6 驱动、锁</description>
+    </item>
+    <item>
+      <title>重读 xv6（IV）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iv/</link>
+      <pubDate>Wed, 29 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iv/</guid>
+      <description>xv6 Trap 与系统调用</description>
+    </item>
+    <item>
+      <title>重读 xv6（III）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iii/</link>
+      <pubDate>Tue, 28 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/iii/</guid>
+      <description>xv6 虚拟内存</description>
+    </item>
+    <item>
+      <title>重读 xv6（II）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/</link>
+      <pubDate>Mon, 27 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/</guid>
+      <description>xv6 进程机制</description>
+    </item>
+    <item>
+      <title>重读 xv6（I）</title>
+      <link>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/</link>
+      <pubDate>Sun, 26 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/</guid>
+      <description>xv6 启动与概览</description>
+    </item>
+    <item>
+      <title>从头写一个 B&#43;Tree</title>
+      <link>https://copicomi.github.io/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/</link>
+      <pubDate>Fri, 24 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/</guid>
+      <description>CMU15-445 Lab2 经验记录</description>
+    </item>
+    <item>
+      <title>写 Raft 时获得的一些方法论</title>
+      <link>https://copicomi.github.io/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/</link>
+      <pubDate>Sun, 14 Sep 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/</guid>
+      <description>MIT6.5840 Lab3 经验记录</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on Anri’s blog</title>
+    <link>https://copicomi.github.io/tags/</link>
+    <description>Recent content in Tags on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 14 Feb 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://copicomi.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Lsm</title>
+      <link>https://copicomi.github.io/tags/lsm/</link>
+      <pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/lsm/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Distributed Sys</title>
+      <link>https://copicomi.github.io/tags/distributed-sys/</link>
+      <pubDate>Fri, 30 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/distributed-sys/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Os</title>
+      <link>https://copicomi.github.io/tags/os/</link>
+      <pubDate>Tue, 11 Nov 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/os/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>C</title>
+      <link>https://copicomi.github.io/tags/c/</link>
+      <pubDate>Sat, 01 Nov 2025 02:25:04 +0800</pubDate>
+      <guid>https://copicomi.github.io/tags/c/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Xv6</title>
+      <link>https://copicomi.github.io/tags/xv6/</link>
+      <pubDate>Sat, 01 Nov 2025 02:25:04 +0800</pubDate>
+      <guid>https://copicomi.github.io/tags/xv6/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Cpp</title>
+      <link>https://copicomi.github.io/tags/cpp/</link>
+      <pubDate>Fri, 24 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/cpp/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Db</title>
+      <link>https://copicomi.github.io/tags/db/</link>
+      <pubDate>Fri, 24 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/db/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Experience</title>
+      <link>https://copicomi.github.io/tags/experience/</link>
+      <pubDate>Fri, 24 Oct 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/experience/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Go</title>
+      <link>https://copicomi.github.io/tags/go/</link>
+      <pubDate>Sun, 14 Sep 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/go/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Raft</title>
+      <link>https://copicomi.github.io/tags/raft/</link>
+      <pubDate>Sun, 14 Sep 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/tags/raft/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>

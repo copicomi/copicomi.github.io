@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    从头写一个 B&#43;Tree | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="从头写一个 B&#43;Tree">
+  <meta property="og:description" content="CMU15-445 Lab2 经验记录">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-10-24T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-10-24T00:00:00+00:00">
+    <meta property="article:tag" content="Cpp">
+    <meta property="article:tag" content="Db">
+    <meta property="article:tag" content="Experience">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/">从头写一个 B&#43;Tree</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">从头写一个 B&#43;Tree</h1>
+        <p class="single-summary">CMU15-445 Lab2 经验记录</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-10-24T00:00:00&#43;00:00">October 24, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>首先对这门课的 lab 做一下总结：</p>
+<ul>
+<li>P1 要求实现一个 buffer pool 管理器，作为读写磁盘的中介</li>
+<li>P2 实现 B+ 索引</li>
+<li>P3 实现查询算子与优化器</li>
+<li>P4 实现 MVCC 机制，用于版本回溯</li>
+</ul>
+<p>P3、P4 更侧重对框架代码与设计架构的理解，后期我使用了 AI 辅助生成代码，coding 并不难</p>
+<p>相比之下，P1 引入了 <strong>RAII</strong> 对象 <code>PageGuard</code> ，P2 又引入了复杂的<strong>并发</strong>情境</p>
+<p>这些 <em><strong>Modern C++</strong></em> 的理念是我觉得最受用的东西，因此我选择 P2 作为整个课程的回顾</p>
+<h1 class="heading" id="一">
+  一
+  <a class="anchor" href="#%e4%b8%80">#</a>
+</h1>
+<p>作为存储在磁盘上的数据结构，B+ 树以<strong>页面</strong>作为存储单元，下面称为 <code>Page</code></p>
+<p>这种设计，要求设计对象成员时，必须精确到字节，这里倒不是难点 <br>
+真正的难点在于，我们通过 P1 的存储 API 进行磁盘交互，必须准确维护 <code>page</code> 对应的闩锁与引用数目</p>
+<p>这种算是简单重复的脏活累活，如果每行代码都要自己写，那就太复杂了</p>
+<p>因此我们选用 P1 提供的 <em><strong>RAII</strong></em> 对象 <code>PageGuard</code> 自动管理资源释放，大大减少了思维负担</p>
+<p>我们本应该事无巨细地手动管理 page 的一切变量，而现在只需考虑 <code>PageGuard</code> 的生命周期即可</p>
+<p>这是针对并发读写的第一层设计，简化资源管理</p>
+<h1 class="heading" id="二">
+  二
+  <a class="anchor" href="#%e4%ba%8c">#</a>
+</h1>
+<p>存储的问题简化了，下面针对树型结构进行讨论</p>
+<p>查询时，我们只需要自顶向下访问，因此找到目标 <code>Page</code> 时不需要多余操作</p>
+<p>然而，增删内容时，可能发生内部节点的分裂与合并，这就需要自底向上依次处理</p>
+<p>因此我们需要一个数据结构 <code>context</code> 来维护访问路径的 <code>PageGuard</code>，用 <code>deque</code> 维护即可</p>
+<p>我们把 <code>context</code> 传入参数，进行操作时就可以得知上下文了</p>
+<p>这是针对读写路径的第二层设计，简化状态检测</p>
+<h1 class="heading" id="三">
+  三
+  <a class="anchor" href="#%e4%b8%89">#</a>
+</h1>
+<p>到这里，我们才进入 B+ 树的正题，实验要求实现三个功能：<em><strong>Insert</strong></em>，<em><strong>Delete</strong></em>，<em><strong>Search</strong></em></p>
+<p>先从插入讲起，抽象为三个步骤：</p>
+<ol>
+<li>找到 <code>key</code> 对应的 <code>LeafPage</code></li>
+<li>插入 <code>Page</code> 内部</li>
+<li>如果分裂，递归向上插入 <code>page_id</code></li>
+</ol>
+<p>可以发现操作分为两种，针对 <code>Page</code> 内容的，与针对 B+树 整体结构的</p>
+<p>因此 Page 内部的操作，如二分查找 value、插入 key-value 等相对独立的操作函数，放在 Page 类的内部即可</p>
+<p>查找和插入是相互独立的，因此分开实现，从而在后面的功能复用 <em><strong>search</strong></em> 功能</p>
+<p>那么我们在这里将操作分为三类：</p>
+<ol>
+<li>有关页面查找的过程，传递 <code>page_id</code> 为参数，将路径存入 <code>context</code></li>
+<li>涉及结构处理的过程，使用 <code>context</code> 获取 <code>guard</code>，不传递 <code>page</code> 参数，逐个处理 <code>context</code> 中的 <code>Page</code></li>
+<li>对于页面内部的过程，使用 <code>page*</code> 传递具体指针，进行数据读写</li>
+</ol>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 999; --h: 729;">
+        <img loading="lazy" alt="头文件定义" src="/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/assets/function-name.png" width="999" height="729">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 头文件定义 </figcaption>
+    </div>
+    
+</figure>
+</p>
+<p>根据操作的行为模式进行分类后，再逐个实现就方便了</p>
+<p>同时将 <code>Page</code> 的处理函数进行二次封装，增加可读性
+
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 932; --h: 290;">
+        <img loading="lazy" alt="二次封装" src="/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/assets/rename-function.png" width="932" height="290">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 二次封装 </figcaption>
+    </div>
+    
+</figure>
+</p>
+<h1 class="heading" id="四">
+  四
+  <a class="anchor" href="#%e5%9b%9b">#</a>
+</h1>
+<p>到这里，我们完成了函数特性的设计，对每个 function 要做什么事情有了很好的规范，下面我们考虑底层处理的细节</p>
+<p><em><strong>Search</strong></em> 功能很简单，向下递归地二分查找即可</p>
+<pre tabindex="0"><code>Search(key)
+  leaf_page = FindLeafPage(key, root_page, context)
+  return GetValue(leaf_page, key)
+
+FindLeafPage(key, now_page, context)
+  context-&gt;PushBack(now_page)
+  if (now_page is LeafPage) 
+    return
+  next_page = FindNextPageId(now_page, key)
+  FindLeafPage(key, next_page, context)
+</code></pre><p>而 <em><strong>Insert</strong></em> 需要考虑分裂节点的问题，一般用 <code>vector</code> 临时存储 KV 对，插入到有序 <code>vector</code>，然后将 <code>vector</code> 分配到两个 <code>Page</code> 即可</p>
+<p>注意到 插入 和 重分配 是两个独立的操作，因此又可以将 <code>Redistribute</code> 操作分离出来，在 <em><strong>Remove</strong></em> 时进行复用</p>
+<pre tabindex="0"><code>Insert(key, value) 
+  FindLeafPage(key, root_page, context) 
+  # 此时 LeafPage 就在 context 末尾
+  return InsertFromBottomLeaf(key, value, context)
+  
+InsertFromBottomLeaf(key, value, context)
+  now_page = context.Pop()
+  if (now_page is full)
+    temp_vector = GetVector(now_page)
+    temp_vector = Append(temp_vector, key-value)
+    new_split_page = NewLeafPage()
+    new_split_key = Redistribute(temp_vector, now_page, new_split_page)
+    InsertFromBottomInternal(key, new_split_key, context)
+  else 
+    InsertLeaf(now_page, key, value)
+
+InsertFromBottomInternal() 
+  ...
+
+Redistribute(vector, page1, page2)
+  将 vector 平分后，分别插入 page1 和 page2 即可、
+  注意 next_page_id 指针的设置
+</code></pre><h1 class="heading" id="五">
+  五
+  <a class="anchor" href="#%e4%ba%94">#</a>
+</h1>
+<p>再解决 <em><strong>Remove</strong></em> 的问题，当页面内容少于阈值时，进行合并操作 <code>Merge</code></p>
+<p>与谁合并呢？我们只需要找到一个相邻的 <code>Page</code> 即可，找前驱或者后继</p>
+<p>此时我们需要获取 <code>context</code> 上一层的父节点，寻找相邻 <code>Page</code>，可以证明一定有这样的相邻 <code>Page</code></p>
+<p>那么这里的 <code>Merge</code> 分两种情况：</p>
+<ol>
+<li>可以重新分配内容，直接复用 <code>Redistribute</code> 即可</li>
+<li>否则只能合并到同一个节点，此时需要向上进行递归 <em><strong>Remove</strong></em>，同时释放 <code>Page</code> 空间</li>
+</ol>
+<p><em><strong>Remove</strong></em> 的实现框架与前面一致，只不过需要更多的辅助函数</p>
+<h1 class="heading" id="六">
+  六
+  <a class="anchor" href="#%e5%85%ad">#</a>
+</h1>
+<p>我们已经完成了基本功能，下面考虑一些边界条件：</p>
+<ol>
+<li>空树：在外层函数进行特判</li>
+<li>合并/分裂到根节点：递归函数中，检查 <code>context</code> 是否为空，从而判断是否要更新根节点</li>
+</ol>
+<p>这里要注意的是对 <code>root</code> 状态的保护，在 <em><strong>Remove</strong></em> 之后需要及时保证 <code>Empty</code> 检查的结果正确</p>
+<h1 class="heading" id="七">
+  七
+  <a class="anchor" href="#%e4%b8%83">#</a>
+</h1>
+<p>现在讨论迭代器的实现</p>
+<p>我们用 <code>page_id</code> 与 <code>key_index</code> 表示迭代器状态，以此重载运算符，通过 <code>next_page_id</code> 指针进行 Leaf 间的移动</p>
+<p>但是一个 <code>iterator</code> 必须长期持有 <code>page</code> 的读锁，才能保证内容安全，因此我们用 <code>read_page_guard</code> 来代替 <code>page_id</code></p>
+<h1 class="heading" id="八">
+  八
+  <a class="anchor" href="#%e5%85%ab">#</a>
+</h1>
+<p>最后我们来审视并发控制</p>
+<p><code>context</code> 中必须按照自顶向下的顺序释放 <code>PageGuard</code>，方便其他线程及时进入，通过调整 <code>context</code> 的析构函数来实现</p>
+<p>每次我们都会获取 <code>head_page</code> 的写锁，属于悲观锁机制</p>
+<p>可以采用乐观锁机制进行优化，因为发生树结构变化的操作非常少，我们可以先一路获取读锁，只在 Leaf 用写锁，如果检查到有结构变化，再回来一路获取写锁</p>
+<p>也可以采用墓碑机制延迟 <em><strong>Remove</strong></em>，定期清理</p>
+<h1 class="heading" id="结束">
+  结束
+  <a class="anchor" href="#%e7%bb%93%e6%9d%9f">#</a>
+</h1>
+<p>没有做优化的情况下，我的提交在 24fall 的 leaderboard 上排在 7/168</p>
+<p>一方面是人少，另一方面，我觉得在反复推翻尝试后，迭代出的顶层设计，更有利于思考线程间的交互，也就自然写出高质量的代码，这是我从本实验中收获的实践</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/">
+                        写 Raft 时获得的一些方法论
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/i/">
+                        重读 xv6（I）
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

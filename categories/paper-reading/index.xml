@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Paper Reading on Anri’s blog</title>
+    <link>https://copicomi.github.io/categories/paper-reading/</link>
+    <description>Recent content in Paper Reading on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 30 Jan 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://copicomi.github.io/categories/paper-reading/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Paxos Made Simple</title>
+      <link>https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/</link>
+      <pubDate>Fri, 30 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/</guid>
+      <description>朴素 paxos 算法介绍</description>
+    </item>
+    <item>
+      <title>S081 论文拾遗</title>
+      <link>https://copicomi.github.io/posts/pager-reading/s081/1/</link>
+      <pubDate>Tue, 11 Nov 2025 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/pager-reading/s081/1/</guid>
+      <description>虚拟机、RCU、微内核、meltdown</description>
+    </item>
+  </channel>
+</rss>

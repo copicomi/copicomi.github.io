@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    S081 论文拾遗 | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/pager-reading/s081/1/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/pager-reading/s081/1/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="S081 论文拾遗">
+  <meta property="og:description" content="虚拟机、RCU、微内核、meltdown">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-11-11T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-11-11T00:00:00+00:00">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/pager-reading/s081/1/">S081 论文拾遗</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">S081 论文拾遗</h1>
+        <p class="single-summary">虚拟机、RCU、微内核、meltdown</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-11-11T00:00:00&#43;00:00">November 11, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="微内核">
+  微内核
+  <a class="anchor" href="#%e5%be%ae%e5%86%85%e6%a0%b8">#</a>
+</h1>
+<h2 class="heading" id="摘要">
+  摘要
+  <a class="anchor" href="#%e6%91%98%e8%a6%81">#</a>
+</h2>
+<blockquote>
+<p>The Performance of μ-Kernel-Based Systems 原文发布于 <strong>1997 年</strong></p>
+</blockquote>
+<p>本文介绍 L4 这个微内核 kernel，并验证 L4 是否克服了初代微内核的限制</p>
+<blockquote>
+<p>微内核只提供最基本的 <strong>内存、线程与进程间通信</strong> 功能，其余功能通过接入模块实现</p>
+</blockquote>
+<p>L4 是第二代微内核</p>
+<h2 class="heading" id="背景">
+  背景
+  <a class="anchor" href="#%e8%83%8c%e6%99%af">#</a>
+</h2>
+<p>九十年代，pure-微内核架构性能过差，逐渐式微</p>
+<p>人们对微内核做出了两种尝试：</p>
+<ol>
+<li>向下细化抽象，建立类似硬件架构的接口</li>
+<li>向上提升抽象，为拓展 kernel 提供更好的接口</li>
+</ol>
+<p>但那不是本文的工作，本文还是专注于 pure 微内核架构，介绍 L4 kernel，从三个方面进行性能评估：</p>
+<ol>
+<li>L4 上运行 Linux，评估性能</li>
+<li>L4 上实现管道扩展</li>
+<li>将 L4 移植到不同的硬件平台</li>
+</ol>
+<h2 class="heading" id="design">
+  Design
+  <a class="anchor" href="#design">#</a>
+</h2>
+<p>L4 只关注 <strong>线程</strong> 与 <strong>用户空间</strong> 两个概念，线程间通信引出 <strong>IPC</strong> 设计</p>
+<p>L4 对上层 OS 的服务基于一个想法：<strong>对地址进行递归映射，为 guest OS 提供资源使用权</strong></p>
+<p>这里需要阐明一个事实，L4 作为宿主，其上层的 OS server 应该运行在 <code>user-level</code></p>
+<p>这些 server 调用 L4 提供的 <code>grant,map,unmap</code> 接口，维护用户进程的内存映射，因此又称为 <code>pager</code></p>
+<h2 class="heading" id="l4-linux">
+  L4 Linux
+  <a class="anchor" href="#l4-linux">#</a>
+</h2>
+<p>我们将 Linux 作为一个用户态进程，运行在 L4 上</p>
+<p>运行在 Linux 上的应用不知道自己在 L4 上，因此我们需要重写系统调用的库，将其重定向到 L4 层</p>
+<h3 class="heading" id="ipc">
+  IPC
+  <a class="anchor" href="#ipc">#</a>
+</h3>
+<p>原先的 Linux 宏内核可以直接与硬件交互，但是在这里，模块之间只能通过 L4 提供的 IPC 进行通信服务</p>
+<p>这么做提高了不同功能间的隔离性，但是 频繁的 IPC 通信显然会影响性能</p>
+<p>要进行 IPC 通信，需要有两个线程分别调用 <code>send</code> 与 <code>recv</code></p>
+<p>如果是异步通信，<code>sender</code> 请求时会陷入 L4 kernel，<code>reciever</code> 回复时又会陷入，一来一回增加了许多开销</p>
+<p>因此 L4 采用同步通信</p>
+<p>但这样还是不够，IPC 基于 page 映射提供的空间共享服务，以此实现通信，同时还要在 kernel 间反复 trap，如果我们针对这种情况做出特殊优化呢？</p>
+<p>第一，我们可以减少 L4 内核态的切换，不要 trap 后，回到用户态再等待回复，而是在内核态直接切换上下文，让出 CPU，收到回复后再返回 user-level</p>
+<p>第二，我们为 message 与 reply 指定空间映射，通过 L4 pager 提供的服务，进行 IPC 通信，这样一来就不需要在两个不同的 user address space 间进行 copy</p>
+<p>这种设计其实就是 RPC 的想法</p>
+<h3 class="heading" id="硬件交互">
+  硬件交互
+  <a class="anchor" href="#%e7%a1%ac%e4%bb%b6%e4%ba%a4%e4%ba%92">#</a>
+</h3>
+<p>原先，Linux 直接与设备打交道，捕获信号、异常，并trap到内核线程</p>
+<p>在 L4 就不可以了，因为现在中断信号与 Linux 分离开</p>
+<p>L4 采用的做法是，将这些信号转换为 IPC 的 message，设置若干个 signal thread，循环等待 message，提醒 linux kernel 进行处理</p>
+<hr>
+<p>调度功能可以直接调用 L4 的接口</p>
+<p>一个值得注意的设计失误是，起初 Linux kernel 与其他进程的地位是平等的，导致 L4 切换时不能区分开，会频繁刷新 TLB</p>
+<p>解决方案是将 Linux kernel 映射到共享内存中，这样就避免频繁切换页表了</p>
+<h1 class="heading" id="虚拟机">
+  虚拟机
+  <a class="anchor" href="#%e8%99%9a%e6%8b%9f%e6%9c%ba">#</a>
+</h1>
+<blockquote>
+<p>Dune: Safe User-level Access to Privileged CPU Features</p>
+</blockquote>
+<p>虚拟机的想法是，让不同的操作系统运行在同一台物理机器上，由 VMM 作为中间层管理资源</p>
+<p>比较直观的做法是，由软件对硬件寄存器进行模拟，但这么做增加大量额外的系统调用，性能极差</p>
+<p>最后流行的选择，还是让 OS 代码直接运行在 CPU 上，但是 VMM 会向上层 OS 屏蔽底层细节</p>
+<p>VMM 的核心理念可以概括为 <em><strong>Trap-Emulate</strong></em>，检查到 OS 想要与逻辑上的”底层硬件“交互时，就触发 trap 到 VMM，由 VMM 掩盖一切，模拟交互结果后，将期望的结果返回给 OS</p>
+<ul>
+<li>VMM 为 OS 提供逻辑上的双层页表，OS 的物理地址其实是 VMM 为其分配的</li>
+<li>VMM 也会为 OS 提供设备模拟，这样 OS 还是以为自己在与真实设备交互</li>
+</ul>
+<p>人们普遍认可虚拟机的流行后，分别从 OS 与 硬件 上对其进行针对设计</p>
+<ul>
+<li>OS 从设计层面意识到虚拟机的存在，这样 VMM 与 OS 直接便可以达成协议共识，比如二者可以针对一个约定好的虚拟设备接口开发驱动</li>
+<li>硬件为 VMM 提供优化，为每个 OS 加入独立的寄存器空间，并且为双层页表提供物理支持</li>
+</ul>
+<p>这样一来，hardware-OS 的两层结构实际变成了三层：HW-VMM-OS，原先的用户-内核态设计，也变成了三层权限</p>
+<ul>
+<li>第一层是直接操作物理硬件的权限</li>
+<li>而第二层则是对<strong>运行环境 env</strong> 的隔离，不同的 env 之间不会相互干扰</li>
+<li>最后一层才是 user-level，运行用户程序</li>
+</ul>
+<p>其中，隔离 env 的理念具有普适性，而优化后的 VT-x 硬件又天然支持三层架构</p>
+<p>为何不利用这种硬件，在原生 OS 上实现 env 层隔离呢？这就是 Dune 的设计动机</p>
+<h2 class="heading" id="dune">
+  Dune
+  <a class="anchor" href="#dune">#</a>
+</h2>
+<p>借助内核态的设计，我们可以提供大量的安全性服务，然而这会增加开发的复杂度，此外，借助虚拟机来实现沙箱隔离的做法也是可行的，但毕竟需要原生的 OS 去做适配，相性不好</p>
+<p>因此我们产生 Dune 的想法，利用硬件提供的三种特权模式，将这种隔离功能与原生的进程模型结合起来，兼备性能与安全性</p>
+<p>Dune 模式提供的服务：</p>
+<ol>
+<li>访问 EPT 提供的安全隔离内存</li>
+<li>调用原生 OS 的接口</li>
+<li>访问特权模式保护的硬件</li>
+</ol>
+<p>相比传统的 VMM，Dune更加明确自己的工作场景，更加轻量化，硬件又提供了直接访问特权硬件的方式，还加速了中断传递与地址翻译，这样一来，Dune 进程大大减少了 Trap 到内核的次数，性能自然得到提升</p>
+<p>而 not-root 模式本身就不被硬件信任，Dune 的安全性也得到保障</p>
+<p>Dune 被实现为 加载 module 的形式，使用自己的 dunelib 库做接口，转换与下层抽象的交互，因此可以与常规的进程并存</p>
+<p>采用 Dune 模式，我们有以下应用：</p>
+<ol>
+<li>sandbox，用于运行风险程序</li>
+<li>特权分离，在 Dune env 下对不同线程进行细化权限配置，加强控制性</li>
+<li>GC，利用硬件对 Trap 次数的优化，加速常规扫描与访存</li>
+</ol>
+<h1 class="heading" id="meltdown">
+  Meltdown
+  <a class="anchor" href="#meltdown">#</a>
+</h1>
+<p>meltdown 漏洞从用户态代码，获取任意一块物理 bit 上的内容</p>
+<ul>
+<li>构造想要读取的 物理地址，诱骗 CPU 在分支预测时读取该地址的内容</li>
+</ul>
+<p>一般的内核，会将 用户与内核态内存 映射到同一个页表，减少切换成本，只是通过设置权限位 PTE_U 来隔离访问</p>
+<p>Intel CPU 在预测时不会检查该权限，因此会直接读取，在分支预测失败后，CPU 意识到不该执行这条指令，于是回退状态</p>
+<p>但是读取的信息已经存放在 Cache 里了</p>
+<ul>
+<li>我们只需要重新读出两个分支的数据，比较 CPU 时间，更短的那个说明就在 cache 里</li>
+</ul>
+<p>借助该方式，我们通过 CPU 时间推理出了想要攻击的信息</p>
+<p>解决方案：</p>
+<ol>
+<li>隔离 user 与 kernel 页表映射</li>
+<li>优化 CPU 分支预测，检查权限，或者干脆取消映射</li>
+</ol>
+<p>我觉得还可以从 cache 入手，但是读入读出都会存在 side information，根源应该是不能暴露任何分支预测的执行信息，仅依靠 cache 还是不可以</p>
+<h1 class="heading" id="rcu">
+  RCU
+  <a class="anchor" href="#rcu">#</a>
+</h1>
+<p>面对并发的读写场景，我们需要用锁进行控制，然而大量的读操作并不互斥，因此引出读写锁 <code>rw_lock</code> 的设计</p>
+<p>然而，既然有锁，就必然会有 CPU 空转，假设 n 个 CPU 同时进行并发 read，对于同一个读锁，我们需要维护 <code>ref_count</code> 引用计数，这同样是一个原子场景，产生互斥，这样浪费的 CPU 周期是 $n^2$ 级别的</p>
+<p>能否实现无锁的读写结构呢？这就是 RCU 的想法</p>
+<p>RCU 有限制，必须不强制原地写入</p>
+<p>RCU 的做法是，在写入时，拷贝一个临时的副本，在副本上做写入，完成时，原子的替换指针，使得后续的读操作都会连接到这个副本上</p>
+<p>而之前的读操作依旧会读取旧的快照，不会读到写入一半的数据</p>
+<p>当写入结束时，需要等待一段时间，将快照从 cache 中驱逐，便可安全释放内存</p>
+<h1 class="heading" id="rust-kernel">
+  rust kernel
+  <a class="anchor" href="#rust-kernel">#</a>
+</h1>
+<p>传统的 OS 利用页表与特权机制，实现空间隔离，这需要硬件作为支持</p>
+<p>而旧的 C 语言实现，存在大量安全隐患，产生从语言层面解决问题的需求，因此目前有大量的项目选择用高级语言重写 OS</p>
+<p>而本文选择利用 Rust 的现代语言特性（所有权、移动语义），提供一种新的抽象体系，仅从软件层次实现 OS 的隔离性，这就是 redleaf 的设计动机</p>
+<p>redleaf 提供的抽象：</p>
+<ol>
+<li>将不同空间抽象为 domain，在 domain 间做访问限制</li>
+<li>对每个 domain 建立隔离的 heap，并在全局提供一个共享 heap</li>
+<li>中间代理，为跨 domain 的调用提供接口封装</li>
+</ol>
+<p>将 domain 与所有权模型结合，我们就实现了零开销的拷贝操作</p>
+<p>通过 domain 抽象，我们完成在设计层面上的隔离空间，为了贯彻这种隔离的理念，redleaf 实现为一个微内核，并在其之上实现 rv6 OS 进行性能评估</p>
+<p>这里需要解释 <strong>fault 隔离</strong> 的含义：当一个模块发生故障时，只需要清理它所在的 module 而不影响其他部分的运行，反例是宏内核，一旦出错就需要重启整个系统</p>
+<p>redleaf 采用两种自定义概念：</p>
+<ol>
+<li>RRef 类型：同时包含元数据与数据本身，在 domain 间进行所有权转移</li>
+<li>proxy 接口：对接口进行严格的 trait 定义，采用静态语言进行正确性检查</li>
+</ol>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vii/">
+                        重读 xv6（VII）
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/">
+                        Paxos Made Simple
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

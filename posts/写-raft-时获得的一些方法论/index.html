@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    写 Raft 时获得的一些方法论 | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="写 Raft 时获得的一些方法论">
+  <meta property="og:description" content="MIT6.5840 Lab3 经验记录">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-09-14T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-09-14T00:00:00+00:00">
+    <meta property="article:tag" content="Go">
+    <meta property="article:tag" content="Raft">
+    <meta property="article:tag" content="Experience">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E5%86%99-raft-%E6%97%B6%E8%8E%B7%E5%BE%97%E7%9A%84%E4%B8%80%E4%BA%9B%E6%96%B9%E6%B3%95%E8%AE%BA/">写 Raft 时获得的一些方法论</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">写 Raft 时获得的一些方法论</h1>
+        <p class="single-summary">MIT6.5840 Lab3 经验记录</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-09-14T00:00:00&#43;00:00">September 14, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <p>本文作为学习备忘录，以个人的commit记录为参考，记录独立完成整个实验的过程，作为简历背书
+Lab3 从头写一个 raft 模块，设计细节不再赘述，只记录一些感受到的方法论<br>
+作为初学者，一些内容可能比较浅显，见谅</p>
+<p><strong>前置知识</strong>：Raft论文，A Tour of Go</p>
+<h1 class="heading" id="3a-election-选举">
+  3A Election 选举
+  <a class="anchor" href="#3a-election-%e9%80%89%e4%b8%be">#</a>
+</h1>
+<p>按照论文实现，注意 ticker 与 处理 VoteRPC 时的细节即可</p>
+<p>我想记录的是，在实现 3A 后，我在尽可能写出 <em>clean code</em> 方面所做的工作</p>
+<p>我认为<strong>下面三个动作</strong>，极大降低了我后续开发的复杂度</p>
+<ol>
+<li>拆分代码文件</li>
+<li>冗长而有意义的函数命名</li>
+<li>设计高阶函数抽象</li>
+</ol>
+<h2 class="heading" id="拆分文件">
+  拆分文件
+  <a class="anchor" href="#%e6%8b%86%e5%88%86%e6%96%87%e4%bb%b6">#</a>
+</h2>
+<p>我先前的项目都是在框架代码的基础上做填空，没有组织代码文件的经验，因此这是我个人从零开发的初次实践</p>
+<p>选举逻辑就写到 <code>election.go</code>，日志处理就写到<code>log.go</code>，RPC 通信逻辑就写到 <code>rpc.go</code>，等等<br>
+我做了这样的划分，明显减轻了开发时切换上下文的心智负担</p>
+<h2 class="heading" id="函数命名">
+  函数命名
+  <a class="anchor" href="#%e5%87%bd%e6%95%b0%e5%91%bd%e5%90%8d">#</a>
+</h2>
+<p>我不是一个喜欢写废话注释的人，<strong>最好的注释就是代码本身</strong>，因此我使用了大量封装逻辑</p>
+<p>ticker里要发心跳，就单拎出来写一个 <code>sendHeartbeat()</code>，同理还有<code>sendVoteRequest()</code></p>
+<p>即使整个项目里暂时只有 ticker 会发送 heartbeat，也一定要做好功能封装</p>
+<p>这种封装有两个好处：</p>
+<ol>
+<li>涉及到 state 转换与判断时，可以使用统一逻辑</li>
+<li>通过命名，可以记录 Lock 的使用情况</li>
+</ol>
+<h3 class="heading" id="统一逻辑">
+  统一逻辑
+  <a class="anchor" href="#%e7%bb%9f%e4%b8%80%e9%80%bb%e8%be%91">#</a>
+</h3>
+<p>选举过程中，需要进行 server state 的转换</p>
+<p>你当然可以每到一个函数就重新写一遍切换逻辑，但再简单的逻辑，如果写上一百次，<strong>难免</strong>会出错一次，那你会付出百倍的代价</p>
+<p>即便处理仅仅只有一句简单的 <code>rf.state = Follower</code> 或者 <code>rf.Currenterm += 1</code>，也<strong>绝对</strong>有必要封装成 <code>rf.TurnIntoFollower()</code> 或 <code>rf.IncCurrentTerm()</code>，可读性与可维护性兼备，就该这么写</p>
+<p>如果你没这么干，那么到开发后期，你新增的逻辑又要复制粘贴到不同地方，<strong>难免</strong>会出错</p>
+<p>这种封装，同时也减少了你思考细节的成本。</p>
+<p>每次切换到 <code>Follower</code>，都要重置 <code>VoteFor</code> 等变量，这时候只需要在 <code>TurnIntoFollower()</code> 中添上几行就完活了，再进一步，甚至可以将重置变量的过程，再封装到 <code>InitFollowerState()</code> 里</p>
+<p><strong>持续的做封装</strong>，最后你的顶层函数将会充斥着封装逻辑，配合冗长而有意义的函数命名，函数名本身就是自然语言，代码本身就是注释</p>
+<h3 class="heading" id="lock命名">
+  Lock命名
+  <a class="anchor" href="#lock%e5%91%bd%e5%90%8d">#</a>
+</h3>
+<p>这是一个分布式项目，意味着<strong>并发</strong>场景与lock，也就意味着死锁风险</p>
+<p>加锁还是不加？你总需要思考潜在的死锁问题，如果你<strong>一眼</strong>就能看出调用的函数是否持有锁就好了。</p>
+<p>很明显，<code>IncCurrentTermWithoutLock()</code> 这个函数不带锁，从命名入手就解决了</p>
+<p>但太多后缀也不好，不可能给每个人都挂上命名牌，我的选择是只对状态处理的函数做这种设计，把这样的零碎函数放在<code>states.go</code>里面</p>
+<p>对于更上层的逻辑，需要从设计层面形成抽象层，根据扮演的 role 判断是否需要锁，我没有考虑过这方面</p>
+<h2 class="heading" id="高阶抽象">
+  高阶抽象
+  <a class="anchor" href="#%e9%ab%98%e9%98%b6%e6%8a%bd%e8%b1%a1">#</a>
+</h2>
+<p>明显可以注意到，RPC 通信逻辑是一个<strong>与 Raft 整体设计无关</strong>，却又<strong>不得不</strong>在代码里重复的模块</p>
+<p>但是每次接收的参数类型又不同，一会发<code>Append RPC</code>，一会又发<code>Vote RPC</code>，一会广播了，一会又针对某个server复制log了，这怎么可能封装成一个函数呢？</p>
+<p>针对每个类型都做一层封装逻辑是可以的，但本质上<strong>并没有</strong>减少代码复杂度，仅仅是提高了可读性</p>
+<pre tabindex="0"><code>BoardcastHeartbeat() {
+  for i := peers 
+    sendAppendRPC(i, MakeEmptyAppendArgs())
+}
+</code></pre><p>像这样的函数，仅仅是换一换调用的函数，换一换发送的 args，就是另一个功能了，但还是要重复一样的代码</p>
+<p>设计的关键是将整个外层包装的 <code>for i := peers</code> 抽象出来，内部行为传参调用即可</p>
+<p>因此我抽象出 <code>Boardcast</code> 广播抽象：</p>
+<pre tabindex="0"><code>Boardcast(sendFunction, handleFunction, argsFactory, replyFactory) {
+  for i := rf.peers
+    args := argsFactory()
+    reply := replyFactory()
+    sendFunction(i, args, reply)
+    handleFunction(i, args, reply)
+}
+</code></pre><p>随后对该抽象，进行持续的<strong>复用</strong>即可，你只需要额外写一些工厂函数，放在 <code>factory.go</code> 里</p>
+<p>这样一来，你可以再封装出 <code>BoardcastHeartbeat</code>, <code>BoardcastVoteRequestRPC</code> 等逻辑，用来反哺可读性</p>
+<pre tabindex="0"><code>BoardcastHeartbeat() {
+  args := MakeHeartbeatArgs()
+  Boardcast(
+    MakeSendFunction(RPCAppendEntries)
+    MakeHandleFunction(RPCAppendEntries)
+    MakeArgsFactoryWithGivenArgs(RPCAppendEntries, args)
+    MakeEmptyReplyFactory(RPCAppendEntries)
+  )
+}
+</code></pre><p>即便调用的类型不同，但我们在高阶里定义的参数都是<code>interface{}</code>，只要都实现了一样的接口即可复用，通过 <code>factory MakeFunction</code> 作为<strong>中间层</strong>进行类型适配</p>
+<p>这一part<strong>函数式编程</strong>的思想，是读 SICP 学到的</p>
+<h1 class="heading" id="3b-log-同步">
+  3B Log 同步
+  <a class="anchor" href="#3b-log-%e5%90%8c%e6%ad%a5">#</a>
+</h1>
+<p>依旧按照论文实现，更多的拆分，更多的封装，更多的抽象</p>
+<p>3B 里，最大的问题是<strong>并发</strong>情景，<em>Go routine</em> 的强大之处在此体现得淋漓尽致</p>
+<p>我认为有<strong>两个设计</strong>，减轻了心智负担</p>
+<ol>
+<li>后台 task 线程</li>
+<li>replicator 隔离</li>
+</ol>
+<h2 class="heading" id="后台线程">
+  后台线程
+  <a class="anchor" href="#%e5%90%8e%e5%8f%b0%e7%ba%bf%e7%a8%8b">#</a>
+</h2>
+<p><code>ticker</code>,<code>applier</code>,<code>replicator</code>分别负责不同的业务逻辑，自然可以在后台独立运行</p>
+<p>这里我使用了 <strong>sleep</strong> 与 <strong>cond</strong> 两种控制方法</p>
+<p>定时器 ticker 用 sleep，而 applier 与 replicator 是事件触发的，监视对应的 <code>commitIndex</code> 与 <code>nextIndex</code> ，因此用条件变量</p>
+<p>而 RPC 通信这样等待 reply 的阻塞行为，也需要用 <code>go SendAndHandleRPC()</code> 转到后台运行</p>
+<h2 class="heading" id="线程隔离">
+  线程隔离
+  <a class="anchor" href="#%e7%ba%bf%e7%a8%8b%e9%9a%94%e7%a6%bb">#</a>
+</h2>
+<p>我对每个server都单独运行一个<code>replicator</code>线程，同时保证每个 replicator 都是串行化的，这样不同 server 之间的同步控制就是彼此<strong>隔离</strong>的</p>
+<p>设计之初，我用的是 heartbeat 的回复机制，来判断是否要重发 appendRPC</p>
+<p>然而，这么做杂糅了 RPC 处理与 replicate 机制，导致测试过程中频繁出现并发问题</p>
+<p>因此我选择将 Retry Send 逻辑封装到 replicator 里，处理 RPC 时只需唤醒 cond 即可</p>
+<h2 class="heading" id="重用抽象">
+  重用抽象
+  <a class="anchor" href="#%e9%87%8d%e7%94%a8%e6%8a%bd%e8%b1%a1">#</a>
+</h2>
+<p>即便设计了 Boardcast 抽象，但是 replicator 需要针对单一 server 发送特定的 AppendRPC</p>
+<p>这是不能广播相同 RPC 的情景，不能复用之前的 Boardcast 函数</p>
+<p>但也只需要多增加一个参数，做成<code>BoardcastWithGivenPeers()</code> 即可，或者针对 <code>BoardcastAppendRPC()</code> 做单独适配也可以</p>
+<p>之前提到，上层业务调用的函数尽量要封装好，这里就派上用场了</p>
+<p>尽管改变了底层的逻辑，但上层调用的都是 <code>BoardcastHeartbeat()</code> 这样意义明确的封装函数，只需要略微改动中间层函数的内容即可，也利于单元测试和Debug</p>
+<p>不过由于之前提到的并发问题，我最后放弃了对 BoardcastAppend 的重用，转为使用 replicator 线程控制行为</p>
+<h2 class="heading" id="更多封装">
+  更多封装
+  <a class="anchor" href="#%e6%9b%b4%e5%a4%9a%e5%b0%81%e8%a3%85">#</a>
+</h2>
+<h3 class="heading" id="谓词函数">
+  谓词函数
+  <a class="anchor" href="#%e8%b0%93%e8%af%8d%e5%87%bd%e6%95%b0">#</a>
+</h3>
+<p>处理 RPC reply 时，要处理很多的边界case，因此需要进行很多 <strong>if 判断</strong></p>
+<p>我选择将这样的判断封装为<em>谓词</em>，命名为<code>IsMatchPrevLog()</code>，这样以<code>Is...()</code>为格式的函数显式标注谓词，这样做进一步提高可读性</p>
+<h3 class="heading" id="log-处理">
+  Log 处理
+  <a class="anchor" href="#log-%e5%a4%84%e7%90%86">#</a>
+</h3>
+<p>我设计了<code>AppendLogList()</code>，<code>AppendSingleLog()</code>，<code>CutLogListAtIndex()</code>等封装，将日志相关状态的变更绑定在一起</p>
+<p>在之后实现 Snapshot 的过程中，需要进行 LogIndex 的转换，这时只需修改现在的封装函数即可</p>
+<h1 class="heading" id="3c-persist-持久化">
+  3C Persist 持久化
+  <a class="anchor" href="#3c-persist-%e6%8c%81%e4%b9%85%e5%8c%96">#</a>
+</h1>
+<p>这一节本身没有难度，难在更加严格的测试</p>
+<p>3C 的主题是 Debug，由于之前的<strong>基础设施</strong>比较完善，我没有花太多时间</p>
+<h2 class="heading" id="日志打印">
+  日志打印
+  <a class="anchor" href="#%e6%97%a5%e5%bf%97%e6%89%93%e5%8d%b0">#</a>
+</h2>
+<pre tabindex="0"><code>func mDebug(rf *Raft, format string, a ...interface{}) {
+	if Debug {
+		prefix := fmt.Sprintf(&#34;[%d] S%d &#34;, rf.currentTerm, rf.me)
+		format = prefix + format
+		log.Printf(format, a...)
+	}
+}
+</code></pre><p>我没有对日志进行额外处理，只用了上面的 <code>mDebug()</code> 打印日志，多测脚本是通义灵码写的</p>
+<p>日志能够清晰的指明行为的开始与结束，以及当前的状态即可，方便定位冲突的地方</p>
+<h2 class="heading" id="不可靠的网络">
+  不可靠的网络
+  <a class="anchor" href="#%e4%b8%8d%e5%8f%af%e9%9d%a0%e7%9a%84%e7%bd%91%e7%bb%9c">#</a>
+</h2>
+<p>框架提供的 <code>call()</code> 已经保证通信处理，不需要进行丢包判断，这里只需要保证正确处理过期的 RPC args 与 reply</p>
+<p>过时的直接拒绝即可，我想强调的是延迟乱序到达的情况</p>
+<p>leader先后发送两个 args，但是reply却是以相反的顺序收到</p>
+<p>这种情况下，RPC处理的状态必须具有<strong>不可逆性</strong>，总是应该检查 RPC 是否是当前状态的子集，否则有状态回退的风险</p>
+<h2 class="heading" id="性能优化">
+  性能优化
+  <a class="anchor" href="#%e6%80%a7%e8%83%bd%e4%bc%98%e5%8c%96">#</a>
+</h2>
+<p>快速回退，可以利用server方的reply信息进行优化</p>
+<p>我的 replicator 采用纯 cond 循环进行控制，但发送了过多的 RPC</p>
+<p>应该是发送了大量短而频繁的复制请求，因此我增加了一个小小的延时<code>sleep(10)</code>，这样可以等待 log 堆积，进行批处理</p>
+<p>我的 applier 采用 sleep 进行控制</p>
+<h1 class="heading" id="3d-snapshot-快照">
+  3D Snapshot 快照
+  <a class="anchor" href="#3d-snapshot-%e5%bf%ab%e7%85%a7">#</a>
+</h1>
+<p>这节是最坑的，如果你没有做好封装，这将会是伤筋动骨的一个feat，依旧按照论文实现，代码写到 <code>snapshot.go</code></p>
+<h2 class="heading" id="边界条件">
+  边界条件
+  <a class="anchor" href="#%e8%be%b9%e7%95%8c%e6%9d%a1%e4%bb%b6">#</a>
+</h2>
+<p>首先我需要加入一个 <code>snapshotEndIndex</code> 变量，同时提供截断 <code>log</code> 的操作</p>
+<p>因此实现若干个类似<code>GetLastLogIndexWithoutLock()</code>的接口即可，在外部依旧使用逻辑index</p>
+<p>同时 replicator 根据 <code>IsExistInSnapshot(nextIndex)</code> 判断发送 appendRPC 还是 installRPC</p>
+<p>这里的 bug 是最晕的，需要从头到尾好好敲打一遍，尤其注意快速回退与replicator的交互，很多数组越界，非常多</p>
+<h2 class="heading" id="死锁">
+  死锁
+  <a class="anchor" href="#%e6%ad%bb%e9%94%81">#</a>
+</h2>
+<p>在课程框架的 <code>server.go</code> 中 <code>applierSnap()</code> 嵌套调用了 <code>rf.Snapshot()</code>，因此在把 message 发送到 applyCh 时会有死锁问题</p>
+<p>起初我仅仅是在 Snapshot 里做了不加锁的处理，这样是不行的，有并发问题</p>
+<p>最后我的设计是，单独设计一个小锁，保护 <code>InstallSnapshot</code>，<code>Snapshot</code> 与 <code>applier</code>，而发送message到applyCh时，临时释放大锁</p>
+<p>snapshot与install有race，因此我用小锁针对这几个函数做互斥处理</p>
+<h2 class="heading" id="框架">
+  框架
+  <a class="anchor" href="#%e6%a1%86%e6%9e%b6">#</a>
+</h2>
+<p>我觉得课程框架里<code>server.go</code>的设计有问题，不应该在 applier 里嵌套调用snapshot，这两个相互独立的逻辑就应该好好隔离开</p>
+<p>同时也存在一个并发 bug，当测试环境模拟 crash 时，将 raft 置为 nil，但没有及时清空信道，仍有可能调用 rf.Snapshot()，导致引用空指针</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/">
+                        从头写一个 B&#43;Tree
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>
