@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    Paxos Made Simple | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="Paxos Made Simple">
+  <meta property="og:description" content="朴素 paxos 算法介绍">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-01-30T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-01-30T00:00:00+00:00">
+    <meta property="article:tag" content="Distributed Sys">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/paxos-made-simple/">Paxos Made Simple</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">Paxos Made Simple</h1>
+        <p class="single-summary">朴素 paxos 算法介绍</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2026-01-30T00:00:00&#43;00:00">January 30, 2026</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>《<a href="https://lamport.azurewebsites.net/pubs/paxos-simple.pdf">Paxos Made Simple</a>》原文的推导思路比较跳跃，初读会比较难以理解，每个词都能看懂可还是不知所云，我觉得这种阅读的重点应该放在作者的行文动机上，如果能够随时思考“为什么要引入这个命题或者设计上”，读起来就顺畅了，还会留下一些启发式的思考</p>
+<p>因此本文的写作目的还是帮助理解原文，有关算法细节我会略写</p>
+<blockquote>
+<p>之前的工作中，我感觉到读论文得到的思考，没能成体系的记录下来，边啃原文边用 obsidian 记笔记的方式还是效果不好</p>
+<p>所以我开始用 zotero 做文献注解，并且有意识地略读，既能保留原文的脉络，又不需要另起炉灶写很多废话，分析这篇 Paxos Made Simple 就是第一次尝试的副产物了</p>
+</blockquote>
+<h1 class="heading" id="一--paxos-要解决什么问题">
+  一 | Paxos 要解决什么问题？
+  <a class="anchor" href="#%e4%b8%80--paxos-%e8%a6%81%e8%a7%a3%e5%86%b3%e4%bb%80%e4%b9%88%e9%97%ae%e9%a2%98">#</a>
+</h1>
+<p>计算机本质是一个状态机。分布式系统中，我们通过网络对操作（Command）序列达成共识，并在本地重放（Redo）操作序列，来完成状态同步</p>
+<blockquote>
+<p>这里的 Command 序列是追加写入的，一旦完成写入就不会再修改</p>
+</blockquote>
+<p>Paxos 只描述一轮共识的过程，一旦完成共识，就不会再改变，这有什么作用呢？</p>
+<p>针对特定的一条 Command，我们建立一个 Paxos 实例完成共识，这就完成一轮写入，更进一步，我们对每一条 Command 都维护一个 Paxos 实例，这就完成了整个操作序列的同步，工程中使用的就是这种 <strong>Multi-Paxos</strong> 实现</p>
+<p>本文描述的就是单轮共识的 Paxos 算法</p>
+<h1 class="heading" id="二--paxos-算法流程">
+  二 | Paxos 算法流程
+  <a class="anchor" href="#%e4%ba%8c--paxos-%e7%ae%97%e6%b3%95%e6%b5%81%e7%a8%8b">#</a>
+</h1>
+<blockquote>
+<p>原文中的 <em>提案 (Proposal)</em>，可以简单理解为上面的 <em>command</em></p>
+</blockquote>
+<p>我们分类出三种角色：</p>
+<ul>
+<li><em><strong>Proposer</strong></em>：发起 proposal</li>
+<li><em><strong>Acceptor</strong></em>：作为 proposal 共识的决策者</li>
+<li><em><strong>Learner</strong></em>：被动学习已经达成共识的 proposal</li>
+</ul>
+<p>每条 proposal 应该分配一个独有的序列号（下文用 Pid 代替）</p>
+<blockquote>
+<p>设置 Pid 的目的是确定 proposal 间的全序关系，作为 Acceptor 处理 proposal 冲突的标准</p>
+</blockquote>
+<p>Paxos 共识流程分三个阶段：</p>
+<p><strong>Phase-1 Prepare</strong></p>
+<ul>
+<li>Proposer 向 Acceptor 集群广播 <code>prepare req(pid=n)</code></li>
+<li>Acceptor 收到请求后，<em><strong>承诺不再接受 <code>pid &lt; n</code> 的 message</strong></em></li>
+<li>Acceptor 将最近接受的一条 proposal 打包成 <code>prepare ack</code>，发送回 Proposer</li>
+<li>Proposer 收到大多数 Acceptor 的 <code>ack</code> 后，如果它们回复的 proposal 都为空，那么新 proposal 的值（command 内容）可以任意决定，否则，新 proposal 的值必须与 Acceptor 回复的 proposal 值相同</li>
+</ul>
+<blockquote>
+<p>可以认为 Prepare 阶段，就是提前为 <code>pid=n</code> 的 proposal 占位，相当于加锁，但如果有更大的 Pid，还是会让出座位</p>
+</blockquote>
+<p><strong>Phase-2 Accept</strong></p>
+<ul>
+<li>Proposer 根据 Phase-1 确定的值构造 proposal，广播到 Acceptor 集群</li>
+<li>Acceptor 会记录先前承诺的 Pid，决定是否接受该 proposal</li>
+<li>Proposer 收到大多数 Acceptor 的 <code>accept ack</code> 回复后，认为完成共识，否则，proposal 会用更大的 Pid 重复 Phase-1</li>
+</ul>
+<p><strong>Phase-3 Learn</strong></p>
+<ul>
+<li>Acceptor 接受一条 proposal 后（注意，不是达成共识），向所有 Learner 广播该信息，由 Learner 自行维护 Acceptor 集群的状态</li>
+<li>如果 Learner 发现有一条 proposal 被大多数 Acceptor 接受过，那么就确定共识已经完成，将 proposal（Command） 应用到本地机器上的状态机，至此结束一轮共识</li>
+</ul>
+<p>以上是朴素 paxos 的流程</p>
+<h1 class="heading" id="三--为什么-paxos-是正确的">
+  三 | 为什么 Paxos 是正确的？
+  <a class="anchor" href="#%e4%b8%89--%e4%b8%ba%e4%bb%80%e4%b9%88-paxos-%e6%98%af%e6%ad%a3%e7%a1%ae%e7%9a%84">#</a>
+</h1>
+<blockquote>
+<p>原文从数学假设入手，一步步反推构造出 Paxos，从而保证了算法正确性。我不觉得这是原本的探索过程，本文应该是出于 “made simple” 的目的，才选择这种行文手法</p>
+<p>与其思考“为什么 Paxos 是这样的”，我选择以 “为什么 Paxos 是正确的” 为切入点展开阅读，跳过本节不影响对 Paxos 本身的学习</p>
+</blockquote>
+<p>本节是对 2.2 节思路的注释，原文提到的命题不做翻译</p>
+<p>首先明确 Paxos 的目的：</p>
+<ul>
+<li>适用于 异步、非拜占庭 模型</li>
+<li>针对单轮共识，不涉及修改</li>
+<li>由 Proposer 提出 command</li>
+<li>$(R1)$ 达成共识的 command 必须是唯一的</li>
+<li>$(R2)$ 一旦达成共识，command 的值不会改变</li>
+<li>$(R3)$ 达成共识的 command 会传播到整个集群中</li>
+</ul>
+<p>为满足 $(R1)$，我们采用多数原则（或称 quorum、法定人数），正确性显然</p>
+<blockquote>
+<p>设  $C_1,C_2$ 是两个由 Acceptor 中多数成员组成的集合，则二者必有共同成员 $x$</p>
+<p>假设 $C_1,C_2$ 都达成共识，共识结果分别为 $v_1,v_2$ ，则 $v_1 = v_x  = v_2$</p>
+<p>故 不可能 分别对 两个不同的值 完成共识，即 共识值唯一，<strong>$(R1)$ 成立</strong></p>
+</blockquote>
+<p>Phase-2 中提到过，一个完成共识的 command 会通过 <code>prepare ack</code> 传递回 Proposer，并替代 proposal 内容，由此完成传播， <strong>$(R3)$ 成立</strong></p>
+<p>而 $(R2)$， 等价于原文中的 $P2$</p>
+<blockquote>
+<p>$P2$. <em>If a proposal with value v is chosen, then every higher-numbered proposal that is chosen has value v .</em></p>
+</blockquote>
+<blockquote>
+<p>原文提出 P2 后的行文思路：</p>
+<ul>
+<li>要满足共识条件，必须满足 P2</li>
+<li>P2 的充分条件是什么？</li>
+<li>逐步推理出 P2 的充分条件 P2c，并证明</li>
+<li>设计一个满足 P2c 的规则</li>
+<li>这样我们就得到了 Paxos 算法</li>
+</ul>
+</blockquote>
+<p>提出 $P2$ 后，我们考虑 ${P2}^a$，只对 Acceptor 做限制</p>
+<blockquote>
+<p><em>${P2}^a$ . If a proposal with value v is chosen, then every higher-numbered proposal <strong>accepted by any acceptor</strong> has value v .</em></p>
+</blockquote>
+<p>但这样一来，如果有新的 Acceptor 临时加入集群，无法获悉之前共识的上下文，或者说不知道其他人已经达成共识（缺失对运行环境的认知），就会错误接受另外的 command，这就违背了 ${P2^a}$</p>
+<p>故我们进一步限制，提出 ${P2}^b$</p>
+<blockquote>
+<p><em>${P2}^b$ If a proposal with value v is chosen, then every higher-numbered proposal <strong>issued by any proposer</strong> has value v .</em></p>
+</blockquote>
+<p>易知 ${P2}^b$ 是 $P2$ 的充分条件，下面我们寻找 ${P2}^b$ 成立的充分条件</p>
+<p>怎么寻找呢？我们采用 <strong>数学归纳法</strong>：</p>
+<blockquote>
+<p>假设 $m &lt; n$ ，$Pid = m$ 时原命题成立</p>
+<p>设 $C$ 为达成共识的大多数 Acceptor 集合，则该假设的具体表述如下：
+<em>Every acceptor in C has accepted a proposal with number in m . . (n − 1), and every proposal with number in m . . (n − 1) accepted by any acceptor has value v .</em></p>
+<p>试寻找 $Pid = n$ 时同样成立的充分条件 ${P2}^c$</p>
+</blockquote>
+<p>只要能找到 ${P2}^c$ ，我们就可以利用归纳法证明 ${P2}^b$ 成立，进而满足 $P2$</p>
+<p>通过构造，我们找到了 ${P2}^c$</p>
+<blockquote>
+<p><em>${P2}^c$. For any v and n, if a proposal with value v and number n is issued, then there is a set S consisting of a majority of acceptors such that either (a) no acceptor in S has accepted any proposal numbered less than n, or (b) v is the value of the highest-numbered proposal among all proposals numbered less than n accepted by the acceptors in S .</em></p>
+</blockquote>
+<blockquote>
+<p>P2c 是归纳证明成立的前提，是作者先射箭后画靶，凭空构造出来的，只要我们能保证 P2c 成立，归纳证明就成立，P2b、P2就成立，共识算法就成立</p>
+<p>这里的 S 实际就是先前提到的 majority 集群 C，(A) 对应初始所有 acceptor 为空的状态，(B) 对应归纳假设的条件，proposal 从 acceptor 获取 value，强制达成共识</p>
+</blockquote>
+<blockquote>
+<p>这里借 P2c 说明 paxos 的运行机制</p>
+<p>要发出一个 proposal，它的 value 来源只能有两个：</p>
+<ul>
+<li>要么 acceptor 为空，自由取值</li>
+<li>要么 acceptor 已经达成 majority 共识，强制给 proposal 赋值为共识结果，以同步到剩余的 acceptor</li>
+</ul>
+<p>因为两个 majority 必有交集，故两个条件不可能同时成立，这就保证了 value 来源的一致性</p>
+</blockquote>
+<p>那么我们只需要构造满足 ${P2}^c$ 的规则即可，这需要 Proposer 发出 proposal 时，就持有 Acceptor 中最大的 Pid 信息，从而判断是否应该发出该信息</p>
+<p>然而，Proposer 方只能得知发出 proposal 之前，Acceptor 方的信息，如果发出后，有人抢先到达 Acceptor，这就导致信息不一致了，Proposer 是不可能 “预测未来” 的</p>
+<p>既然不能避免插队问题，那么 Proposer 可以事先要求  Acceptor 做出 “不接受 Pid 更小的 proposal 插队“ 的承诺，这样就强行保证了信息一致</p>
+<blockquote>
+<p>为什么这里会提到“预测未来”的想法呢？</p>
+<p>因为 (A) “发送 proposal” 与 (B) “接受 proposal” 是两个不同的事件，存在逻辑时间差</p>
+<p>而 value 是在 (A) 事件确定的，但在 (AB) 之间，可能有其他 proposal 到达，破坏了 (A) 成立的前提，造成混乱</p>
+<p>所以我们才会引入一个 (C) &ldquo;接收 prepare ack&rdquo; 阶段， 通过 (C) 使 acceptor 做出 promise，从而保证 (AB) 间的因果关系</p>
+</blockquote>
+<p>这里的 ”事先要求“，或者说 promise 机制，就是 Phase-1 的 Prepare 规则了</p>
+<blockquote>
+<p><em>${P1}^a$ . An acceptor can accept a proposal numbered n iff it has not responded to a prepare request having a number greater than n.</em></p>
+</blockquote>
+<p>加入这一条 promise 限制，就完成了整个 Prepare 机制过程，进而满足 ${P2}^c$ ，满足归纳证明 ${P2}^b$ 的过程，满足 $P2$ ，满足 $(R2)$，达到 Paxos 的设计目的</p>
+<p>至此，完成 Paxos 的正确性推导</p>
+<h1 class="heading" id="四--paxos-的优化">
+  四 | Paxos 的优化
+  <a class="anchor" href="#%e5%9b%9b--paxos-%e7%9a%84%e4%bc%98%e5%8c%96">#</a>
+</h1>
+<p>以上仅是理论上的朴素 Paxos 算法，要实现它，还需要进行性能优化</p>
+<p>论文提到的优化：</p>
+<ol>
+<li>
+<p>指定 主 Proposer 与 主 Learner，简化通信复杂度，但会引入选主问题</p>
+</li>
+<li>
+<p>Multi-Paxos 对指令序列进行共识，每条 command 对应一个 paxos 实例，在不同机器上的 状态机 进行重放</p>
+</li>
+<li>
+<p>如果某条 command 共识失败了，那就用 no-op 填补空缺（注意 paxos 层只保证执行，至于其中的因果关系，由应用层进行保证）</p>
+</li>
+<li>
+<p>我们设置一个 command 滑动窗口，这样就可以并发执行多个 paxos 实例</p>
+</li>
+<li>
+<p>我们对 Phase-1 进行优化，一条 prepare 请求可以携带一个实例区间（而不是只针对单个 Paxos 实例）</p>
+<p>这样 leader 运行期间只需要进行一次 Phase-1，不需要多次获取 promise 。这样此后的每一个 paxos 实例，都只需要执行一轮 Phase2，减少了通信量</p>
+</li>
+<li>
+<p>而集群成员的变化，我们也使用状态机维护，但这应该是阻塞式的，如果处在变更阶段，那么就必须等到集群成员稳定之后再进行下面的共识</p>
+<p>为了防止阻塞语义，我们结合滑动窗口对 confchange command 进行<strong>延迟应用</strong>，当且仅当这条 command （paxos 实例）离开滑动窗口时，才认为集群成员稳定，变更生效</p>
+<p>在此之前，即使完成了共识，但只要没有离开滑动窗口，变更就不生效</p>
+</li>
+</ol>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/s081/1/">
+                        S081 论文拾遗
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/leveldb-%E6%BA%90%E7%A0%81%E7%AC%94%E8%AE%B0/">
+                        Leveldb 阅读记录
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+  <link rel="stylesheet" 
+  href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+  
+<script defer 
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+
+<script defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body);"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false }
+      ]
+    });
+  });
+</script>
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>
