@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    分布式论文阅读 II | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/2pc-spanner/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/2pc-spanner/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="分布式论文阅读 II">
+  <meta property="og:description" content="2PC、Spanner 笔记">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-03-30T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-03-30T00:00:00+00:00">
+    <meta property="article:tag" content="Distributed Sys">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/2pc-spanner/">分布式论文阅读 II</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">分布式论文阅读 II</h1>
+        <p class="single-summary">2PC、Spanner 笔记</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2026-03-30T00:00:00&#43;00:00">March 30, 2026</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>本文是我学习分布式事务的笔记，另外我没有详细写过 Multi-Paxos，不了解，因此不会谈论 paxos 的底层细节</p>
+<p>没有精读原论文，借助 blog 和 gemini 进行学习</p>
+<p>引用的 <code>[!cite]</code> 部分可以略过不读</p>
+<h1 class="heading" id="2pc">
+  2PC
+  <a class="anchor" href="#2pc">#</a>
+</h1>
+<p>讲一下我对 2PC 的理解</p>
+<hr>
+<p>分布式事务，我们先讨论原子性，它的问题在于，不同的机器，可能有的commit成功，有的失败</p>
+<p>为什么呢？本质是对 commit 事件没有达成共识</p>
+<p>因此我们需要一个单点的、第三方的协调者，这就是“事务协调器”</p>
+<hr>
+<p>从最简单的想法开始：1PC</p>
+<p>直接获取各个 shard 上的 lock，随后发送 RW 指令，直到各个 shard 回复 ok 就认为事务成功</p>
+<p>这么做的缺陷是什么？</p>
+<hr>
+<p>最常见的是宕机问题，如果一个 server 回复 ok 前 crash 了会怎样？</p>
+<p>server A 已经完成 commit，而 server B 没有</p>
+<p>这就产生了不一致性</p>
+<hr>
+<p>遇到这种问题，我们应该 rollback，但是 server A 上的操作是不可逆的，数据已经落盘 commit</p>
+<p>单机上的 commit 是无法回滚的，我们孤立地看待 server A，它经过了三个阶段：</p>
+<ol>
+<li>从网络获取 data</li>
+<li>将 data 提交到本地 db，执行事务</li>
+<li>事务完成，回复 ok</li>
+</ol>
+<p>server B 也是一样，我们由此发现问题的根源：系统的并发性</p>
+<hr>
+<p>解释一下，网络具有延迟，因此各个 server 间的进度是不同步的，可能 A 到了 3 阶段，B 还在 1 阶段等待 data</p>
+<p>此时如果 B 宕机了，A 却感知不到，就导致状态的不一致</p>
+<p>把 server 看作孤立的状态机，每个人的状态都是随机取值的，这样我们就把问题形式化了</p>
+<hr>
+<p>解决方案很明显。</p>
+<p>既然状态间相互独立，我们就建立同步点，让 server 间互相等待</p>
+<p>简单来说，我们在阶段 2 强制同步，等待所有 server 都从网络获取到 data 后，再允许执行本地事务，这就是 2PC 的 prepare 和 commit 阶段</p>
+<hr>
+<p>此时再回到宕机的问题</p>
+<p>我们用 <code>A1, B2</code> 表示 A 在阶段 1，B 在阶段 2，<strong>默认 B 宕机</strong></p>
+<blockquote>
+<p>A1, B2 | A1, B3</p>
+</blockquote>
+<p>2PC 的 Prepare 设计，这种情况不可能发生</p>
+<blockquote>
+<p>A2, B3 | A3, B3</p>
+</blockquote>
+<p>A 正常运行，B 已经落盘，但是还没回复 ok，协调器需要一直等待 B 重启回复 ok</p>
+<blockquote>
+<p>A2, B2 | A3, B2</p>
+</blockquote>
+<p>A 正常运行，B 收到 data 缓存，但还没落盘 commit，B 需要重启并继续之前的事务</p>
+<p>要处理这个问题，我们需要在 B 端进行 persist，保存事务执行的上下文（包括状态和 data 缓存），这样重启时就能继续工作</p>
+<p>具体时机是我们到达同步点 commit 阶段时，server 将当前状态进行 WAL 持久化</p>
+<blockquote>
+<p>[!note]
+持久化的理由是，我们到达了一个 ”不可逆“ 的阶段，在 2PC 中表现为 commit 不可逆</p>
+</blockquote>
+<hr>
+<p>这里引申一个小问题，阶段 2 需要获取锁，如果此时宕机会发生什么？</p>
+<p>由于我们已经写入了 WAL，重启时直接读取，重新获取锁即可（这里的锁是本地内存锁）</p>
+<p>重启完成前，B 会拒绝后续到达的任何操作</p>
+<hr>
+<p>如果 B 一直不能重启，那么 协调器 会无限等待 B 重启，因为已经进行到 Commit 阶段，不允许回退</p>
+<p>针对这种阻塞情况，我们选择提高 server B 的可用性，具体说就是换用多副本集群（Paxos、Raft），以此减少 B 宕机的频率</p>
+<hr>
+<p>另外 协调器 作为单点服务，本身也应该用 Paxos 集群实现高可用性</p>
+<p>如果协调器宕机了，重启继续运行即可，因为协调器在设计上就是具有全局信息的，不像 server 是孤立的</p>
+<hr>
+<p>3PC 本质是将 阶段 3 也作为同步点，并增加超时检测，但缺点很多，不常用</p>
+<p>3PC 增加了超时等待机制，使得 server 能够自行推进阶段，这就导致 server 的决策 ”不强依赖于全局状态“，自然失去了 safety</p>
+<hr>
+<h1 class="heading" id="spanner">
+  Spanner
+  <a class="anchor" href="#spanner">#</a>
+</h1>
+<p>简单讲一下 Spanner 的事务机制</p>
+<hr>
+<p>读写事务上，采用 2PL+2PC 保证 safety，Paxos 集群保证 liveness</p>
+<p>只读事务上，采用快照隔离 + TrueTime API，实现类似单机 Leveldb 上的隔离读</p>
+<p>这里只讨论如何实现 分布式系统 上的快照隔离</p>
+<hr>
+<p>我们先明确，它和单机上的 snapshot 有何不同</p>
+<p>单机上的 snapshot，每次读写都会分配独有的事务时间戳，进行只读事务时，就记录当前的时间戳，扫描本地 db，忽略那些更加新的数据，读出”最新的旧版本“</p>
+<p>单机的时钟是自洽的，自然可以对事件进行全局排序</p>
+<p>可是分布式系统中，各个 server 的时钟是不同步的，全局排序不可行</p>
+<p>因此我们的重点就在于如何分配这个时间戳</p>
+<hr>
+<p>明确一点，我们针对只读事务进行设计的本意，就是通过减少网络通信，直接本地读，以此提升性能</p>
+<p>容易想到的是，我们提供一个第三方的单点时钟，这就是 TSO 方案（TiDB 采用）</p>
+<p>不过中心化时钟的做法，和我们的本意冲突了，这其实是一种 trade-off</p>
+<blockquote>
+<p>看起来 TSO 和 2PC 都是中心化服务，但二者的定位不同</p>
+<p>2PC 的工作是维护事务状态池，而 TSO 是高速吞吐分配时间戳</p>
+<p>二者的优化方向不同，2PC 可以通过分片进行扩展，但 TSO 只能是单点</p>
+</blockquote>
+<hr>
+<p>Spanner 没有采用 TSO 方案，而是设计了 TrueTime API</p>
+<p>本地时钟存在固有偏差，但我们可以将误差降到最小，从而创造一段可以接受的”置信区间“</p>
+<p>Google 在各个机房设置 GPS 和原子时钟，确保时钟的同步误差极小</p>
+<p>这样，我们为每个事务分配的就不是”时间点“了，而是”时间区间“</p>
+<p>server 进行快照读时，只需要读出本地”时间点“，与事务”区间“的最晚时刻进行比对，就可以保证排序的正确性</p>
+<hr>
+<p>这也引出我们在考虑事件排序时的一个倾向：必须尽可能的保守</p>
+<blockquote>
+<p>假设本地时钟为 <code>[5]</code>，写序列时间戳为  <code>[1, 2]</code></p>
+</blockquote>
+<p>此时我们是不能贸然读取的，要等下去，因为  <code>3,4</code> 的消息可能还在网络中</p>
+<blockquote>
+<p>本地时钟为 <code>[5]</code>，写序列时间戳为  `[1, 2, 6]</p>
+</blockquote>
+<p>这时就能读了吗？也不行</p>
+<p>尽管 6 已经提交，但是 <code>3,4</code> 的 commit 也可能延迟</p>
+<p>Spanner 为每个 replica 维护一个 <code>t_safe</code> 变量，用于确定当前读是否安全</p>
+<hr>
+<h1 class="heading" id="推进-t_safe">
+  推进 T_safe
+  <a class="anchor" href="#%e6%8e%a8%e8%bf%9b-t_safe">#</a>
+</h1>
+<p>分布式的另一个问题，就是网络延迟</p>
+<p>收到 6 不代表后面不会再收到 3,4，这导致我们必须等待一个绝对安全的时机</p>
+<p>这就是  $t_{safe}$ 的作用了，分三个来源：</p>
+<ul>
+<li>Paxos 可见的 commit 记录 t1</li>
+<li>协调器中已经 Prepare 但还没 commit 的记录 t2</li>
+<li>leader 的时钟保证 t3</li>
+</ul>
+<p>t1 很好理解，t2 则是要求我们等待该记录完成 commit</p>
+<blockquote>
+<p>[!note]
+这里注意，Leader 的 Paxos 会进行两次写入，一次 Prepare，一次 Commit，最后的时间戳以 Commit 为准，Prepare 只是为了完成集群内部同步，同时提示上层：”仍有事务没有 commit，这个旧事务的时间戳可能更小&quot;，因此会影响  <code>t_safe</code></p>
+</blockquote>
+<p>t3 的作用是什么呢？</p>
+<p>在 Prepare 阶段，协调器会向 leader 发信息，而 leader 会根据本地时钟，去要求协调器修正自己分配的时间戳，不应该早于 leader</p>
+<p>类似于 basic paxos 中的 prepare 承诺，leader 承诺不会接收任何早于 t3 的 prepare 事件</p>
+<p>这样三者就分别对应了三种延迟到达的信息阶段：</p>
+<ul>
+<li>已 commit</li>
+<li>已 prepare 未 commit</li>
+<li>未 prepare</li>
+</ul>
+<p>t1 由 Paxos 空洞机制保证，t2 由协调器的状态记录保证，t3 由 leader 时钟保证</p>
+<p>取三者的最小值，就是 <code>t_safe</code></p>
+<p>另外，t3 通过 heartbeat RPC 传递，又可以定期推进 <code>t_safe</code>，保证可用性</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/gfs-bigtable-chubby/">
+                        分布式论文阅读 I
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/15445-%E5%A4%8D%E7%9B%98/">
+                        15445 复盘
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+  <link rel="stylesheet" 
+  href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+  
+<script defer 
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+
+<script defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body);"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false }
+      ]
+    });
+  });
+</script>
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

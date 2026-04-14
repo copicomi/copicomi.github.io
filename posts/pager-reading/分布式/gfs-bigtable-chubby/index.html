@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    分布式论文阅读 I | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/gfs-bigtable-chubby/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/gfs-bigtable-chubby/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="分布式论文阅读 I">
+  <meta property="og:description" content="GFS、Bigtable、Chubby 论文笔记">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-03-16T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-03-16T00:00:00+00:00">
+    <meta property="article:tag" content="Distributed Sys">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/gfs-bigtable-chubby/">分布式论文阅读 I</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">分布式论文阅读 I</h1>
+        <p class="single-summary">GFS、Bigtable、Chubby 论文笔记</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2026-03-16T00:00:00&#43;00:00">March 16, 2026</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>二十年前，Google 面临的数据规模不断增长，以当时的单机性能，是无法应对巨大的存储需求的，要提升性能，我们只有两种方式：要么纵向扩展，将单机性能做到极致，要么横向扩展，将廉价机器组织成集群</p>
+<p>前者的代价是昂贵的，并且边际效应十分明显，这迫使我们选择后者</p>
+<p>好在分布式系统的理论已经足够完善，Google 的难点在于将理论变为工程现实，他们成功了，并发表了相关论文</p>
+<p>我阅读的三篇论文中，GFS 实现了存储层的分片，Bigtable 实现了逻辑层的分散管理，Chubby 实现了分布式锁（帮助整个集群对运行环境达成共识）</p>
+<p>这三个组件位于不同的抽象层，共同组成分布式存储的技术栈</p>
+<p>我的写作目的是，记录这些组件的协作关系，并关注核心 idea 与工程优化，分辨出这些 problem 的本质，提取出其中的启发式知识</p>
+<p>我不会深入讨论实现细节，下面我们先分别讨论三个组件的内部实现</p>
+<p>审视一个系统时，必须先认清 “它提供了怎样的服务”，“如何与外界交互”，带着目的去读设计，这是我的阅读经验</p>
+<blockquote>
+<p>前三部分是我阅读过程中随手记的笔记，语义可能不连贯</p>
+</blockquote>
+<h1 class="heading" id="一--gfs">
+  一 | GFS
+  <a class="anchor" href="#%e4%b8%80--gfs">#</a>
+</h1>
+<h3 class="heading" id="设计目的">
+  设计目的
+  <a class="anchor" href="#%e8%ae%be%e8%ae%a1%e7%9b%ae%e7%9a%84">#</a>
+</h3>
+<p>GFS 本质是 “用多台机器存储巨大文件”</p>
+<p>集群中一定存在机器故障，大文件不利于随机 IO</p>
+<p>另外，GFS 的定位是，为上层应用提供可靠的存储抽象</p>
+<p>结合这几点，我们先确定了 GFS 的设计特点：</p>
+<ul>
+<li>关注容错</li>
+<li>倾向于 append write</li>
+<li>设计简单的 File API</li>
+</ul>
+<p>GFS 其实并没有什么理论上的创新，它只是给出了一个真实的工程实现，证明分布式设计是可用的</p>
+<p>底层的分布式抽象是很好理解的</p>
+<p>我们将一个巨大的 GFS File，按偏移量映射到不同的 chunk，分散到不同的 chunk-server 中存储，查询时按照索引，读取对应的 chunk，这就实现文件的分片</p>
+<p>一旦单个 server 损坏，对应的 chunk 就变得不可用，因此我们在此基础上，对同一个逻辑 chunk 进行多个 server 备份，这就实现了容错</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 1065; --h: 606;">
+        <img loading="lazy" alt="gfs" src="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/gfs-bigtable-chubby/assets/gfs.png" width="1065" height="606">
+    </div>
+
+    
+</figure>
+</p>
+<p>注意这里的 chunk 是一个逻辑对象，我们并不关心具体会存储到哪台机器，也不关心 server 是哪台机器上的线程</p>
+<p>明确一点，GFS 的服务对象是 客户端 Lib，开发者调用客户端库接口 append 进行开发，而对 Lib 而言，GFS 的底层实现是透明的</p>
+<p>因此 GFS 可以不保证强一致性，将其转移到 Lib 层进行实现，再进一步由开发者使用</p>
+<h3 class="heading" id="一致性保证">
+  一致性保证
+  <a class="anchor" href="#%e4%b8%80%e8%87%b4%e6%80%a7%e4%bf%9d%e8%af%81">#</a>
+</h3>
+<p>GFS 的本质是维护 <code>file offset</code> 到 <code>(filename,chunk)</code> 的映射</p>
+<p>Master 就负责管理这些运行环境相关的 metadata，并将 client 的读写指令转发到对应的 chunk</p>
+<p>然而网络是不稳定的，并发的写入操作可能会错序到达，在不同的 server 上呈现不同的顺序，造成不一致</p>
+<p>为了解决这一点，我们在 chunk 集群中，指定一个 Primary server，由它来决定全局的写入顺序，这样控制流会先到达 primary server，进行排序后，再转发到各个 chunk server</p>
+<hr>
+<p>但这么做仍有潜在的问题：不同的 append 写入会混合在一起，这样客户端视角下，offset 就不是连续的了，没有问题吗？</p>
+<p>没有问题，前面提到过，客户端 Lib 是了解 GFS 细节的，因此在上层会做 offset 的进一步处理，保证正常读写</p>
+<p>另外，如果 chunk 集群在同步过程中失败了，primary server 会通知上层 client 进行重试 append</p>
+<h3 class="heading" id="数据与控制流分离">
+  数据与控制流分离
+  <a class="anchor" href="#%e6%95%b0%e6%8d%ae%e4%b8%8e%e6%8e%a7%e5%88%b6%e6%b5%81%e5%88%86%e7%a6%bb">#</a>
+</h3>
+<p>这样 Master 成为了单点瓶颈，如果所有数据都通过 Master 转发，显然会限制性能</p>
+<p>因此 GFS 采用数据流解耦的设计</p>
+<p>从 Master 角度，处理 Read 指令时，只需返回 chunk server 的地址，由客户端自行与 chunk 集群进行数据通信</p>
+<p>从 Chunk 集群角度，Write 同步时，可以按最优顺序在 server 间传输数据，而不需要等待 primary 统一调度</p>
+<p>这一点是如何实现的呢？</p>
+<p>Write 时，我们实际上是先尽快将 Data 扩散到整个 chunk 集群，等待 Primary 安排好 offset 顺序后，再给对应的 Data 分配位置，准备回复客户端</p>
+<h3 class="heading" id="lease-设计">
+  Lease 设计
+  <a class="anchor" href="#lease-%e8%ae%be%e8%ae%a1">#</a>
+</h3>
+<p>前面提到的 Master、Primary server 其实都是单主集群，一旦宕机，就无法恢复</p>
+<p>因此我们需要设置租约机制（Lease），定期向 leader 发起询问，更新 lease 期限，如果迟迟收不到回复，认为租约超时，指定新的 leader</p>
+<hr>
+<p>性能上，客户端可以随时缓存 GFS 的上下文信息，如 Chunk 地址、Primary server 地址</p>
+<hr>
+<h3 class="heading" id="快照">
+  快照
+  <a class="anchor" href="#%e5%bf%ab%e7%85%a7">#</a>
+</h3>
+<p>GFS 采用 COW 实现快照</p>
+<p>创建快照时，我们强制撤销 chunk 现有的 lease，保证该快照对后续所有操作可见，并在 master 标记 快照对应的 chunk 地址</p>
+<p>修改快照时，我们创建一个新 chunk 作为副本</p>
+<h1 class="heading" id="二--bigtable">
+  二 | Bigtable
+  <a class="anchor" href="#%e4%ba%8c--bigtable">#</a>
+</h1>
+<p>GFS 仅仅是提供了一个抽象文件系统，为了扩展性，Google 以 GFS 为基础，又实现了 Bigtable</p>
+<p>Bigtable 采用 K-V 映射作为存储对象，这样就可以根据 key Range 划分到不同的 server 上，实现横向扩展</p>
+<hr>
+<p>Bigtable 将数据存储在不同的 Tablet Server 上</p>
+<p>与 GFS 类似，Bigtable 也采用单 Master 架构，由 master 管理整个系统的控制流</p>
+<p>当 client 发起操作时，master 会告知其对应的 tablet 地址，随后客户端就可以与 tablet server 直接交换数据流，而不需要经过 master</p>
+<hr>
+<p>而一个 tablet 地址的定位，则采用三层索引架构，类似于 DNS 服务，查询结果会存入每一层缓存，以加速后续查询</p>
+<hr>
+<p>分布式系统中，故障是不可忽略的</p>
+<p>我们采用 Chubby 来管理 master 与 server 的存活状态</p>
+<p>这些状态十分重要，所以我们才会采用共识算法来实现强一致性</p>
+<hr>
+<p>而 Tablet server 则是采用 LSM-Tree 作为存储架构，调用 GFS 提供的接口，将数据持久化到 SSTable，其实现可以参考 Leveldb</p>
+<hr>
+<p>GFS 提供物理存储服务，Bigtable 提供逻辑 KV 服务，Chubby 提供 metadata 共识服务</p>
+<p>这样我们就将不同的层次解耦了</p>
+<p>另外，这些系统运行的基本单位都是“进程”，意味着 GFS 和 Bigtable 进程可能会运行在同一台机器，甚至共用同一个硬盘</p>
+<p>但我们不需要关心这些细节，分层抽象的目的，就是实现这种“位置透明”</p>
+<h3 class="heading" id="tablet-只是进程">
+  Tablet 只是进程
+  <a class="anchor" href="#tablet-%e5%8f%aa%e6%98%af%e8%bf%9b%e7%a8%8b">#</a>
+</h3>
+<p>Tablet server 只是逻辑上管理 KV 的进程而已，并不实际拥有数据</p>
+<p>所有的 File 都存在 GFS 里，因此即使 Tablet 所在的机器 crash，我们也可以随时将该 Tablet 管理的 range 分配给其他 server，不需要复制任何东西</p>
+<hr>
+<p>所以说，Bigtable 只提供了逻辑上的管理服务，要实现 tablet 分裂，我们只需要在 GFS File 上建立新的索引即可，而不需要修改具体数据</p>
+<h1 class="heading" id="三--chubby">
+  三 | Chubby
+  <a class="anchor" href="#%e4%b8%89--chubby">#</a>
+</h1>
+<p>Chubby 作为一个 分布式锁 服务，为 Google 内部的 GFS、Bigtable 系统，提供单 Master 的选举逻辑</p>
+<p>以选举 master 为例，要保证 master 唯一，我们只需要在 Chubby 中获取唯一的 lock 即可，这个 lock 必须在整个集群中达成共识</p>
+<p>接下来要讲两点，如何管理 lock，如何共识</p>
+<p>对于 lock 管理，Chubby 提供 类 Unix 文件系统 接口，也就是 “路径 + 文件”的形式，锁服务就是对 “文件” 进行操作，同时 lock 小文件中还可以存储一些 metadata</p>
+<p>对于 共识算法，Chubby 内部的 lock 采用 5 server 的 Paxos，其中 有一台 server 会成为 leader（注：与上面的 master 区分开）， client 就是与这台 leader 机器做交互</p>
+<p>但是这与外部集群有何关系呢？</p>
+<p>Paxos 仅仅保证了 Chubby 内部的共识，与 client 方的 env 显然没有关系，为什么说外部集群也能对这个 lock 产生唯一的共识呢？</p>
+<p>这是一个更简单的问题。这里 Chubby 实际担任了第三方服务的角色，也就是说整个集群，都要向 Chubby 这唯一的服务方做查询，这是一个单点服务的场景，既然所有查询都经过同一个节点，那么结果自然是被大家共识的</p>
+<p>再讲清楚一点，Paxos 这里只是保证 Chubby 内部数据的”可靠性“，共识只发生在 Chubby 内部，外部的共识靠“单点查询”的系统设计来保证</p>
+<p>这就指明了 Chubby 的使用场景：高可靠性</p>
+<p>我们只会用 Chubby 来维护一些像是 master 身份的，需要整个集群达成共识的，运行环境，而不能用于存储大量用户数据</p>
+<h3 class="heading" id="session-维持">
+  Session 维持
+  <a class="anchor" href="#session-%e7%bb%b4%e6%8c%81">#</a>
+</h3>
+<p>Chubby 与 client 通过 session 通信，如果有一方突然宕机了，无法发出 close 信号，另一方如何得知呢？</p>
+<p>Chubby 选择 lease 机制，双方约定一个固定的时间段，并定期交换 heartbeat RPC，更新 lease 期限，如果 lease 超时，就自动释放 session 资源</p>
+<p>这里我们采用 “双向计时”，也就是在 Chubby 与 client 双方，同时维护两个不同的计时器，考虑到 RPC 延迟，client 方的 lease 会更短一些</p>
+<p>注意这里的两个计时器，它们不一定是同步的，我们仅在接收 heartbeat 时 对齐时钟</p>
+<hr>
+<p>Chubby 方 lease 的作用是，client 失联时，能及时释放 session 资源</p>
+<p>client 方 lease 的作用是，判断 Chubby 已经断开 session，不会再发出非法指令</p>
+<p>所以 client 的计时会更短，更保守，保证安全性</p>
+<p>不过即便 client lease 已经到期，chubby lease 也需要再过一段时间才会释放资源，如果在这段时间内，client 又接收到 chubby 的 heartbeat RPC，说明租约还有效，此时 client 会恢复已经释放的缓存，续约后正常运行</p>
+<p>这段真空期，我们称作 jeopardy delay</p>
+<p>我们这里用 KeepAlive RPC 替代 heartbeat，前者是阻塞式的，Master 收到 RPC 后不会立刻回复，而是等到租约快到期时才回复，这样就减少了 RPC 发送频率</p>
+<hr>
+<p>而在 Master 方，我们也有一段 grace period，租约过期后，会延迟一段时间再释放资源</p>
+<p>既然没有收到 RPC，说明已经断开连接了，保留资源又有什么作用呢？</p>
+<p>这里的 Master，其实指的是新选举出的 master</p>
+<p>新 master 显然不会收到旧的 RPC，当旧 Master 失效后，client 会尝试寻找新的 master，一旦 client 与新 master 建立 session，旧的资源就可以重用了</p>
+<hr>
+<p>显然 client 方是知道存在 grace period 的，所以租约过期后，它至少也会等待这段时间结束后，再释放资源</p>
+<h3 class="heading" id="lock-设计">
+  lock 设计
+  <a class="anchor" href="#lock-%e8%ae%be%e8%ae%a1">#</a>
+</h3>
+<p>chubby 的 lock 是建议性锁，client 可以绕过锁强行访问文件</p>
+<hr>
+<p>这么做，放松了对上层读写的限制，需要上层自行 acquire lock 进行管理</p>
+<hr>
+<p>另外，我们对每个 lock 维护一个 seq 序号，这样能够阻断乱序到达的指令，明确当前锁的持有者</p>
+<hr>
+<p>Chubby 还引入了 lock delay</p>
+<p>当 client A 宕机时，它的旧指令可能还在网络中，而 Chubby 会释放 A 对应的锁</p>
+<p>旧指令 可能在 没有锁 的情况下执行，导致语义错误</p>
+<p>为了处理这种问题，chubby 选择对异常释放的 lock，保留一段“安全期”，限制任何人都不能获取该锁，直到旧指令在网络中消亡（TTL）</p>
+<p>这样 其他 client 不会获取到该锁，也不会发出新指令，就不会产生意外冲突</p>
+<hr>
+<h3 class="heading" id="event-机制">
+  event 机制
+  <a class="anchor" href="#event-%e6%9c%ba%e5%88%b6">#</a>
+</h3>
+<p>我们将 KeepAlive RPC 作为定期通信的载体，它会携带 event 信息，完成通知机制</p>
+<p>这是一种 Push 机制，不需要 client 显式搭载请求</p>
+<hr>
+<p>这么做虽然会有延迟，但 Chubby 的关注点是“可靠性”，而不是性能，因此延迟是可以接受的</p>
+<hr>
+<h3 class="heading" id="缓存设计">
+  缓存设计
+  <a class="anchor" href="#%e7%bc%93%e5%ad%98%e8%ae%be%e8%ae%a1">#</a>
+</h3>
+<p>Chubby 维护的是强一致性缓存，读请求只从 client 缓存中取数据</p>
+<p>写操作发生时，Chubby 会用 event 机制，通知所有的 client 清理相关缓存</p>
+<p>收到所有 client 的回复后，chubby 才会执行写操作</p>
+<p>此后，一旦发生读操作， client 会从 chubby 加载新数据，到本地缓存，然后再返回读请求的结果</p>
+<hr>
+<p>这么做，降低了读操作的延迟，将成本分摊到写操作的延迟上</p>
+<p>同时，各个 client 间的缓存是 强一致 的，不必担心可靠性</p>
+<hr>
+<h3 class="heading" id="如何扩展规模">
+  如何扩展规模
+  <a class="anchor" href="#%e5%a6%82%e4%bd%95%e6%89%a9%e5%b1%95%e8%a7%84%e6%a8%a1">#</a>
+</h3>
+<p>如果 client 的规模过大，将会产生大量的 KeepAlive RPC，我们可以延长 Master 方的阻塞时长，减少 RPC 频率</p>
+<hr>
+<p>为减少 RPC，我们还可以设置一层 proxy，这样 client 与 session 就是多对一的关系，master 只需要维护 proxy 的 session</p>
+<p>由 proxy 代理，转发 master 回复的 event 信息即可</p>
+<hr>
+<p>另外还可以对 chubby 的文件做 分片，由不同的 master 集群维护</p>
+<h1 class="heading" id="四--直觉">
+  四 | 直觉
+  <a class="anchor" href="#%e5%9b%9b--%e7%9b%b4%e8%a7%89">#</a>
+</h1>
+<p>这里我想整理下前面的各种优化机制，将工程问题 抽象回 分布式系统的固有特征</p>
+
+<div class="table-outer">
+    <table>
+        <thead>
+            <tr>
+                <th>机制</th>
+                <th>作用</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>lease</td>
+                <td>维持 session、 primary chunkserver</td>
+            </tr>
+            <tr>
+                <td>delay</td>
+                <td>为网络延迟提供安全期</td>
+            </tr>
+            <tr>
+                <td>heartbeat</td>
+                <td>更新 lease，确认存活</td>
+            </tr>
+            <tr>
+                <td>缓存</td>
+                <td>加速 read</td>
+            </tr>
+            <tr>
+                <td>seq</td>
+                <td>为 lock 提供逻辑时钟</td>
+            </tr>
+            <tr>
+                <td>event</td>
+                <td>通知事件，保证缓存一致性</td>
+            </tr>
+            <tr>
+                <td>数算分离</td>
+                <td>分离数据流和控制流</td>
+            </tr>
+        </tbody>
+    </table>
+</div><h3 class="heading" id="时钟问题">
+  时钟问题
+  <a class="anchor" href="#%e6%97%b6%e9%92%9f%e9%97%ae%e9%a2%98">#</a>
+</h3>
+<p>机器间的网络延迟是固定存在的，我们必须为延迟提供容错</p>
+<p>seq 是由第三方集中分配的时钟，这样各个节点可以对此达成共识</p>
+<p>lease 则是以物理时钟为参考，双方在约定的时间段内，承认彼此的存在</p>
+<p>delay 牺牲了可用性，资源失效后，仍会再等待一段时间，直到旧指令在网络中全部消亡，确保不会产生冲突</p>
+<h3 class="heading" id="可用性">
+  可用性
+  <a class="anchor" href="#%e5%8f%af%e7%94%a8%e6%80%a7">#</a>
+</h3>
+<p>缓存使得读操作不需要再通过网络，自然提升了性能，但也带来了一致性问题</p>
+<p>分离数据流，本质是利用了机器间的大量闲置带宽，让 client 与 server 直接通信，而不需要经过 master</p>
+<h3 class="heading" id="组件协作">
+  组件协作
+  <a class="anchor" href="#%e7%bb%84%e4%bb%b6%e5%8d%8f%e4%bd%9c">#</a>
+</h3>
+
+<div class="table-outer">
+    <table>
+        <thead>
+            <tr>
+                <th><strong>组件</strong></th>
+                <th><strong>一致性模型</strong></th>
+                <th><strong>权衡 (Trade-off)</strong></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>GFS</strong></td>
+                <td>弱一致性 (Relaxed Consistency)</td>
+                <td>追求极致的追加写（Append）吞吐量</td>
+            </tr>
+            <tr>
+                <td><strong>Bigtable</strong></td>
+                <td>单行强一致性</td>
+                <td>方便上层业务逻辑开发，简化事务</td>
+            </tr>
+            <tr>
+                <td><strong>Chubby</strong></td>
+                <td>强一致性 (Paxos)</td>
+                <td>牺牲性能，换取绝对可靠的“元数据共识”</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/leveldb-%E6%BA%90%E7%A0%81%E7%AC%94%E8%AE%B0/">
+                        Leveldb 阅读记录
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/2pc-spanner/">
+                        分布式论文阅读 II
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+  <link rel="stylesheet" 
+  href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+  
+<script defer 
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+
+<script defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body);"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false }
+      ]
+    });
+  });
+</script>
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

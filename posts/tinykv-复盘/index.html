@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    TinyKV 复盘 | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/tinykv-%E5%A4%8D%E7%9B%98/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/tinykv-%E5%A4%8D%E7%9B%98/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="TinyKV 复盘">
+  <meta property="og:description" content="架构、Raft vs. Paxos、Multi-Raft">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-04-07T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-04-07T00:00:00+00:00">
+    <meta property="article:tag" content="Go">
+    <meta property="article:tag" content="Raft">
+    <meta property="article:tag" content="Experience">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/tinykv-%E5%A4%8D%E7%9B%98/">TinyKV 复盘</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">TinyKV 复盘</h1>
+        <p class="single-summary">架构、Raft vs. Paxos、Multi-Raft</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2026-04-07T00:00:00&#43;00:00">April 7, 2026</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>准备简历，随意发散</p>
+<h1 class="heading" id="一--架构">
+  一 | 架构
+  <a class="anchor" href="#%e4%b8%80--%e6%9e%b6%e6%9e%84">#</a>
+</h1>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 1363; --h: 661;">
+        <img loading="lazy" alt="" src="/posts/tinykv-%E5%A4%8D%E7%9B%98/assets/structure.png" width="1363" height="661">
+    </div>
+
+    
+</figure>
+</p>
+<p>我的关注重点在 Storage 这个 KV 中间层上，既然引入了分布式，那么就不能以单机视角来看待整个系统，必须把网络通信考虑在内</p>
+<hr>
+<h3 class="heading" id="解释">
+  解释
+  <a class="anchor" href="#%e8%a7%a3%e9%87%8a">#</a>
+</h3>
+<p>Server 层接收外界指令，通过事务机制进行并发控制、语义编排，向 Storage 发送 Message，通过 router、worker 并发调度</p>
+<p>共识存在延迟，Server 用 Callback 来实现异步 IO</p>
+<p>Raft Storage 是对 Storage 接口的实现，对外表现为一个具有延迟的 KV 服务</p>
+<p>Raft Storage 管理多个 raft node 的上下文信息，并通过 router 转发 message，用 worker 分离执行级别</p>
+<p>而 RawNode 对外表现为 Raft 节点 ，用 <code>HasReady()</code> 通知共识结果，只负责实现共识流程，而不与本地的状态机交互</p>
+<p>Storage 层收到 <code>Ready</code> 数据后，将其应用到本地状态机，具体表现为 写入 db，转发 msg，修改 region 状态</p>
+<blockquote>
+<p>Client 对应 SQL 层，Database 对应 存储层</p>
+</blockquote>
+<hr>
+<h3 class="heading" id="消费与被消费">
+  消费与被消费
+  <a class="anchor" href="#%e6%b6%88%e8%b4%b9%e4%b8%8e%e8%a2%ab%e6%b6%88%e8%b4%b9">#</a>
+</h3>
+<p>从消费角度看，可以明确各个模块交互的边界</p>
+<ol>
+<li>server 消费 Command，生产 Message</li>
+<li>worker 消费 Message，生产 Proposal 与 raft 行为</li>
+<li>raft node 消费 Proposal，生产 Ready</li>
+<li>applier 消费 Ready，生产 “状态转移“ 与 callback</li>
+<li>server 消费 callback，生产 success 信号</li>
+</ol>
+<p>整个系统表现为，消费 command，生产 状态转移 与 success 信号</p>
+<p>其中存在两层异步，分别是 server 等待 callback 和 worker 等待 apply</p>
+<p>前者用 callback 实现，后者用 proposal 寄存表实现</p>
+<hr>
+<h3 class="heading" id="如何融入-snapshot">
+  如何融入 Snapshot？
+  <a class="anchor" href="#%e5%a6%82%e4%bd%95%e8%9e%8d%e5%85%a5-snapshot">#</a>
+</h3>
+<p>leader 发现 follower 落后过多时，会选择直接发送 snapshot</p>
+<p>流程：</p>
+<ol>
+<li>raft node 向 storage 发起异步 snapshot 请求，不断询问</li>
+<li>storage 准备好快照，允许 raft node 发送</li>
+<li>raft node 将 snapshot 元信息放入 msg，加入 sendMsg 队列</li>
+<li>rawnode 发现有新 msg 需要发送，生成 Ready</li>
+<li>handler 将其 msg 转发到 transport，再转发到目标节点</li>
+<li>follower 收到 snapshot 后，将其安装到本地</li>
+</ol>
+<p>snapshot 和其他普通的 msg 都会走 transport 路线，但 snapshot 是一个大文件，不能用单条信息传输</p>
+<hr>
+<p>两点特殊：生成 与 发送</p>
+<p>前者，我们用异步请求生成 snapshot，准备好才允许发送 msg</p>
+<p>后者，我们在 transport 截流，特殊处理 snapshot msg，用专门的 snap worker 传输</p>
+<p>另外，SnapshotMsg 只包含 metadata，真正处理 SST File 的逻辑都封装在 snap worker 里，通过 Snapshot gRPC 流传输</p>
+<p>体现在示意图里，我们只需要增加一个 snap worker，从 transport 截流，接收 rawnode 的 snapshot 请求</p>
+<blockquote>
+<p>这里提到的词是 ”异步“和”截流“，对应着大文件传输的处理技巧</p>
+</blockquote>
+<hr>
+<p>发送方，通过 stream 发送 sst 文件，并用 gRPC 远程调用 接收方的 <code>Snapshot()</code> 触发器</p>
+<blockquote>
+<p>另外，普通 msg 也是走 stream RPC 调用，但直接通过 router 转发</p>
+</blockquote>
+<p>接收方，触发 <code>Snapshot()</code> 后，将任务分配给 worker，组装好 snapshot 文件后，再将 msg 传入 router 通知 Raft 层进行 Install</p>
+<blockquote>
+<p>用 while 循环的状态机就能实现 sst 的收发逻辑</p>
+</blockquote>
+<hr>
+<h1 class="heading" id="二--raft">
+  二 | Raft
+  <a class="anchor" href="#%e4%ba%8c--raft">#</a>
+</h1>
+<h3 class="heading" id="流程">
+  流程
+  <a class="anchor" href="#%e6%b5%81%e7%a8%8b">#</a>
+</h3>
+<ol>
+<li>Candidate 选主，随机 election timeout</li>
+<li>Leader 复制日志，覆盖 follower 上的记录</li>
+<li>提交、应用日志，推进 index</li>
+</ol>
+<p>term 由 leader 作为 TSO 分发，是单调的</p>
+<p>还需要引入容错，防止 crush、restart 产生的不一致</p>
+<p>原论文的两条限制：</p>
+<ul>
+<li>Vote 限制：不能投票给 log 状态（term、index）早于自己的 candidate</li>
+<li>Commit 限制：重启后，不可以提交之前 term 里 uncommitted 的日志</li>
+</ul>
+<hr>
+<p>讲一下 vote 限制</p>
+<blockquote>
+<p>[L1, F2,F3] [F4,F5]
+其中 1 2 3 已经提交 log 3，并推进 commitIndex，而 4 5 仍停留在 log 2</p>
+<p>此时 L1 宕机，选举 4 为新 leader
+L4 开始复制日志，覆盖掉 2 3 上的 log 3</p>
+<p>然而 log 3 已经被 commit</p>
+</blockquote>
+<p>这里 Commit 的问题，只要还没有 Apply，是可以通过回退 commitIndex 来弥补的，但是这样增加了不必要的复杂度</p>
+<p>Raft 不允许这种情况，才引入 Vote 限制</p>
+<hr>
+<p>讲一下 Commit 限制</p>
+<blockquote>
+<p>原论文中的 Figure8
+
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 1085; --h: 502;">
+        <img loading="lazy" alt="" src="/posts/tinykv-%E5%A4%8D%E7%9B%98/assets/figure8.png" width="1085" height="502">
+    </div>
+
+    
+</figure>
+</p>
+<p>[T2] L1 写入 log2，将 log2 复制到 F2，宕机<br>
+[T3] L4 当选为 leader <br>
+[T3] L4 写入 log3，宕机（没有 log2）<br>
+[T4] L1 重新当选为 leader，将旧的 log2 复制到 F3<br>
+[T4] L1 推进 commitIndex，宕机<br>
+[T5] L4 再次当选，将 log3 复制到集群，覆盖了 Follower 上的 log2</p>
+<p>这里 Log2 已经完成 commit，但被覆盖了</p>
+</blockquote>
+<p>L4 当选的原因是，log3 的 term 为 T3，大于 log2 的 T2</p>
+<p>同理 log3 也可以覆盖掉 log2</p>
+<p>这里点出了关键因素：时间</p>
+<p>从 T4 的 L1 看来，提交 T2 的 log 是有风险的：</p>
+<ul>
+<li>T3 可能有其他 leader 存入 log</li>
+<li>如果宕机，T3 log 可以覆盖掉我们提交的 T2 log</li>
+</ul>
+<p>从 T2 的 L1 看来，提交 T2 的 log 是可以的：</p>
+<ul>
+<li>不存在 Term 更大的 log</li>
+<li>如果宕机，Vote 限制会阻止没有收到 T2 log 的人成为 leader</li>
+<li>因此提交不会被覆盖</li>
+</ul>
+<p>所以对 T4 的 L1 而言，解决方案是提交一个 T4 的 no-op，这样就安全了：</p>
+<ul>
+<li>T4 log 被提交，不存在 Term 更大的 log</li>
+<li>如果宕机，Vote 限制会阻止没有收到 T2 和 T4 log 的人成为 leader</li>
+<li>因此提交不会被覆盖</li>
+</ul>
+<hr>
+<p>…… 为什么？</p>
+<p>说不清的感觉，先找出“问题是什么”</p>
+<p>上面对于共识状态的判别是很暧昧的，为什么一旦 commit 就不能覆盖？</p>
+<blockquote>
+<p>为什么要以 commit 作为判别标准呢？</p>
+</blockquote>
+<p>commit 和 apply 是异步的，Raft 层不能掌握 apply 的时机，因此采用更严格的标准，将 commit 作为共识节点</p>
+<p>只要达成 commit，Raft 的工作就结束了</p>
+<p>上层 server 会在 apply 之前阻塞（等待 callback），因此不受 commit 与 apply 延迟的影响</p>
+<hr>
+<blockquote>
+<p>以上的限制都是在维护 ”换主“ 问题，我们到底在保证什么？</p>
+</blockquote>
+<p>我认为是在维护 ”共识状态“ 的单调性</p>
+<p>leader 本身并不代表整个集群的共识结果，一条 uncommitted 的日志也可能因为宕机被覆盖</p>
+<p>结合上一个问题，commitIndex 才是我们事实上的共识对象</p>
+<p>我们保证的事实：</p>
+<ul>
+<li>Vote 限制，即使宕机， leader 一定拥有全部 committed 日志（多数投票）</li>
+<li>Commit 限制，推进 commitIndex 时 Term 一定是集群中最大的（no-op），从而保证 Vote 限制</li>
+</ul>
+<p>所以二者都是在保证 vote 限制，也就是 commit 日志不丢失</p>
+<p>因此在 ”换主“ 问题上，我们就是在维护 commit 序列的单调性，从而保证整个集群的 ”共识状态“ 也单调</p>
+<blockquote>
+<p>围绕这一点，我们划分了明确的标准，也就降低了实现的复杂度</p>
+</blockquote>
+<hr>
+<h3 class="heading" id="与-paxos-的比较">
+  与 Paxos 的比较
+  <a class="anchor" href="#%e4%b8%8e-paxos-%e7%9a%84%e6%af%94%e8%be%83">#</a>
+</h3>
+<p>Raft 之所以更容易理解，就是因为它引入了“单调性”，更符合直觉</p>
+<ul>
+<li>日志流向 是单调的，只允许从 leader 流向 follower</li>
+<li>共识状态 是单调的，两个限制保证 commit信息 单调</li>
+<li>选举 是单调的，Term、VoteFor 都是不可逆增长</li>
+<li>日志序列 是单调的，追加写入，单调增长</li>
+</ul>
+<p>而 Paxos 只需提一点：</p>
+<ul>
+<li>proposer 可以从 acceptor 学习到共识 value</li>
+</ul>
+<p>信息是双向流动的，这就破坏了直觉</p>
+<hr>
+<p>共识算法，最重要的就是 ”共识状态“ 在哪里</p>
+<p>Raft 里，Leader 管理着单调的”共识状态“</p>
+<p>而 Paxos 不是这样，leader 甚至需要从集群中“学习共识“</p>
+<p>Paxos 的“共识状态”在哪里呢？在 Quorum 里（过半集群）</p>
+<p>这就引出另一个区别，Commit 时机：</p>
+<ul>
+<li>
+<p>Paxos 在 value 到达 Quorum 的最后一个节点时，完成事实 commit</p>
+</li>
+<li>
+<p>此后新的 proposer 可以学习到该 value</p>
+</li>
+<li>
+<p>Raft 将 commit 时机延后了，在 Quorum 都向 leader 确认收到后，leader 推进 commitIndex 时，完成事实 commit</p>
+</li>
+<li>
+<p>此前只要没有推进 commitIndex，这些 Quorum 上的 log 就可以被覆盖</p>
+</li>
+</ul>
+<p>相比之下，Raft 更容易观测 Commit 进度，而 Paxos 的 Commit 进度则是隐藏在集群里</p>
+<hr>
+<p>我们对比一下单个 value 的共识过程</p>
+<p>Raft 写入：</p>
+<ul>
+<li>leader 写入一条 log，向 follower 传播</li>
+<li>leader 确认该 log 被 quorum 接收，推进 commitIndex</li>
+</ul>
+<p>Paxos 写入：</p>
+<ul>
+<li>
+<p>proposer 向 acceptor 发起 prepare 请求</p>
+</li>
+<li>
+<p>acceptor 承诺为 proposal 预留位置</p>
+</li>
+<li>
+<p>proposer 确认 quorum 完成 prepare</p>
+</li>
+<li>
+<p>proposer 发起一次 proposal</p>
+</li>
+<li>
+<p>quorum 接收 proposal，完成事实共识</p>
+</li>
+</ul>
+<p>Raft 学习：</p>
+<ul>
+<li>其他 follower 从 leader 学习 log</li>
+<li>新重启的 leader 不需要学习，已经保证 commit 单调性</li>
+</ul>
+<p>Paxos 学习：</p>
+<ul>
+<li>learner 从 quorum 学习 value</li>
+<li>其他 acceptor 从 proposal 学习</li>
+<li>新重启的 proposer 启动 prepare 阶段，从 quorum 学习</li>
+</ul>
+<hr>
+<p>可以发现，Paxos 存在“写入失败”的情况</p>
+<p>当 proposal 发现当前已经达成共识，它就必须放弃自己原本打算提议的值了，还要帮助这个“共识值”继续传播，尽管它对这个值的来源一无所知</p>
+<p>那么原本打算写入的 value，怎么办呢？这引出又一个区别，数据模型的不同</p>
+<p>Raft 的共识单位是逻辑 index，与一个 log 对应</p>
+<p>而 Multi-Paxos 的共识单位是物理 slot，一个槽位的来源是多样的，只需最后确定 value 共识即可，如果对一个 slot 的写入失败了，那么就换一个 slot 写</p>
+<p>因此 Paxos 对 slot 是乱序写入，也引入了更多的复杂度</p>
+<p>Multi-Paxos 是一种思想，其实现有许多变种，这里不再展开</p>
+<blockquote>
+<p>关于 multi-paxos 参考 <a href="https://zhuanlan.zhihu.com/p/20872811">使用multi-paxos实现日志同步应用</a></p>
+</blockquote>
+<hr>
+<p>Raft 是 Paxos 的变种吗？</p>
+<p>工程上，二者越来越接近，可是从动机上，二者是不同的</p>
+<p>Paxos 是去中心化的，只关心一轮共识，它是自底向上，从 basic paxos 生长出来的</p>
+<p>而 Raft 天生就是要解决应用层的问题，针对状态机上的连续 log 设置 leader 角色，是自顶向下展开设计的</p>
+<p>Paxos 的优点，在于节点与共识集群的交互，无论如何都是自洽的，难点在于工程实现上，而 raft 则相反</p>
+<hr>
+<h3 class="heading" id="常见的优化手段">
+  常见的优化手段
+  <a class="anchor" href="#%e5%b8%b8%e8%a7%81%e7%9a%84%e4%bc%98%e5%8c%96%e6%89%8b%e6%ae%b5">#</a>
+</h3>
+<blockquote>
+<p>分区情况下，candidate 会不断错误地发起选举，term 会一直增加，还会干扰原有 leader 的正常允许</p>
+</blockquote>
+<p>针对这一点，提出 PreVote 优化：</p>
+<ul>
+<li>candidate 发起选举前，会先发起一轮 preVote RPC，确认能收到 quorum 的 ack 信号，之后才增加 term 正常选举</li>
+<li>缺点是增加了一轮 RPC</li>
+</ul>
+<hr>
+<blockquote>
+<p>读操作也需要通过 leader propose 到集群，达成共识，然而读操作不修改状态机，这样也导致读效率底下</p>
+</blockquote>
+<p>为什么效率低？因为达成共识的 read 请求，apply 到了多个副本上，而我们事实上只需要一次 apply 来读出数据</p>
+<p>因此我们省略 read log 的实体，转而用 readIndex 来指代这条 log</p>
+<p>流程：</p>
+<ol>
+<li>收到读操作时，leader 主动发起一次心跳，同步日志</li>
+<li>当 commitIndex 推进到 readIndex 时，我们知道现在可以读 leader 了</li>
+</ol>
+<p>这就是 readIndex 优化</p>
+<p>假如仍同步 read log（index = 3 write + 1 read）：</p>
+<ul>
+<li>读日志会被发送到 follower 上</li>
+<li>leader 推进 commitIndex = 4</li>
+<li>follower 推进 applyIndex = 4</li>
+<li>leader 也推进 applyIndex = 4，读出数据</li>
+<li>apply 读日志前后，状态机无变化</li>
+</ul>
+<p>使用 ReadIndex（index = 3 write）：</p>
+<ul>
+<li>不会生成读日志</li>
+<li>leader 记录 ReadIndex = 3</li>
+<li>leader 发起心跳，推进 commitIndex = 3</li>
+<li>leader 推进 ApplyIndex = 3</li>
+<li>leader 检查到 ReadIndex = ApplyIndex，读出数据</li>
+<li>没有产生读日志，状态机无变化</li>
+</ul>
+<p>读操作不改变状态机，因此只在 leader，而不在 follower 上执行是可以的</p>
+<blockquote>
+<p>readIndex 可以用到 follower 读上，因为状态机是一致的，但需要保证 applyIndex 与 readIndex 严格对齐</p>
+</blockquote>
+<hr>
+<p>前面提到过，leader 的 commitIndex 是单调的，readIndex 对应的状态机也是唯一的</p>
+<p>但 ReadIndex 还是需要一轮心跳共识来确认自己是最新的 leader，否则有可能出现过期读（其他 leader 已经修改了状态机）</p>
+<p>如果当前 ApplyIndex 已经是最新的，那么直接读就好了，如何省略这轮“确认身份”的心跳呢？</p>
+<p>采用租约机制，Lease Read 方案：</p>
+<ul>
+<li>每次完成一轮心跳，我们就更新 lease 期限</li>
+<li>在 lease 结束前，我们可以认为自己就是最新的 leader</li>
+<li>收到心跳后， follower 至少要经过一个 electionTimeout 才会选出新 leader，在此之前，leader 不会改变</li>
+<li>因此用 electionTimeout 作为 lease 延长时间</li>
+</ul>
+<blockquote>
+<p>另外，lease 还需要考虑时钟偏移的影响</p>
+</blockquote>
+<hr>
+<blockquote>
+<p>假如，leader 收不到 follower 的 ack，但 follower 可以正常接收信息<br>
+此时 leader 无法推进 commitIndex，follower 也不会发起选举，服务不可用</p>
+</blockquote>
+<p>从 leader 端增加超时检测，如果收不到 follower 的 ack 就认为断联</p>
+<p>当发现 quorum 断联时，leader 认为自己不能提供服务，让出位置，触发集群选举</p>
+<hr>
+<p>简单记一下 log 的优化：</p>
+<ul>
+<li>网络 batching，IO batching</li>
+<li>pipeline，log 流水线同步，用 cache 组装乱序到达的 log</li>
+<li>并行，leader 一边 append log 一边发送给 follower（网络与 IO 并行）</li>
+<li>异步 apply</li>
+</ul>
+<hr>
+<h3 class="heading" id="成员变更">
+  成员变更
+  <a class="anchor" href="#%e6%88%90%e5%91%98%e5%8f%98%e6%9b%b4">#</a>
+</h3>
+<blockquote>
+<p>reference: <a href="https://blog.openacid.com/distributed/raft-bug/">TiDB 在 Raft 成员变更上踩的坑</a></p>
+</blockquote>
+<p>confchange 作为一条 log 在集群内完成共识</p>
+<p>引入的问题是，quorum 的定义变得不稳定了</p>
+<p>如果一次引入多个节点，很可能同时形成两个不重合的 quorum，造成不一致</p>
+<p>而采用单步成员变更，就没有这个顾虑，因为新旧集群的两个 quorum 一定重合（可以证明）</p>
+<p>然后用串行单步，就可以达成多个变更的效果</p>
+<hr>
+<p>但是单步变更也有缺点</p>
+<p>如果是偶数个节点，就会产生 <code>[ab|cd]</code> 的情况，此时两边都不存在 quorum，无法选举出 leader</p>
+<p>这里的问题是 quorum 不等于 majority</p>
+<p>quorum 是一个集合，其中的元素两两必有交集，我们令 <code>Q(abcd) = M(abcd) + {bc}</code> 就能解决上述问题</p>
+<blockquote>
+<p>Raft 给的约束 Majority 其实是 最大 quorum 的一个子集，因此这是一个 raft 设计本身的问题</p>
+</blockquote>
+<hr>
+<p>单步变更会引入一个新的空节点，这破坏了 vote 限制，造成不一致</p>
+<p>两点：</p>
+<ol>
+<li>空节点，可以给落后的 candidate 投票</li>
+<li>quorum 定义不稳定</li>
+</ol>
+<blockquote>
+<p><code>[ab|cd] ADD[u] ADD[v]</code> 中，<code>[cd v]</code> 可能已经对 <code>ADD v</code> 完成 commit
+a 重启后选择继续 commit 之前的 <code>ADD u</code>，并不知道 <code>ADD v</code> 存在
+但 <code>ab</code> 视角下，<code>cd</code> 不构成 quorum<br>
+因此可能对 <code>[ab u]</code> 达成共识，重复 commit</p>
+</blockquote>
+<p>针对这一点，一条 <code>no-op</code> 就可以解决，d 会先同步一条 <code>no-op</code> 在 <code>[abcd]</code> 中，保证 vote 限制，再执行 <code>ADD v</code></p>
+<p>之前的 commit 限制自动解决了这个问题</p>
+<hr>
+<p>Joint 变更一次引入多个节点，它采用了一个过渡态保证 quorum 定义稳定</p>
+<p>以 <code>[abc] -&gt; [cde]</code> 为例，分两阶段：</p>
+<ol>
+<li>先达成 <code>[abc] or [cde]</code> 新旧并存的共识</li>
+<li>commit 后，再发起新一轮共识，过渡到 <code>[cde]</code></li>
+</ol>
+<p>quorum 的变化：<code>1# Q(abc) --&gt; 2# Q(abc) &amp;&amp; Q(cde) --&gt; 3# Q(cde)</code></p>
+<p>脑裂问题，其实就是分别在 <code>Q(abc)</code> 和  <code>Q(cde)</code> 中产生了两个不相交的 quorum，进而导致两个 leader</p>
+<p>我们引入 <code>#2</code> 阶段，这样就强制相邻两个阶段的 quorum 相交了</p>
+<p>进入 <code>#3</code> 阶段，由于 commit 单调性，仍处在 <code>#1</code> 的节点不可能成为 leader（因为 <code>#2</code> 已经完成 commit）</p>
+<blockquote>
+<p>如果 <code>#2</code> commit 之前，选出了 <code>#1</code> 的节点作为 leader，那么它会覆盖掉我们写入的 uncommit 的 confchange 日志，这次变更也就失败了</p>
+</blockquote>
+<p>而 <code>#3</code> 完成 commit 后，单调性也会导致 <code>#2</code> 节点无法成为 leader，这样新 leader 只会在新集群中产生，可以正常服务</p>
+<hr>
+<p>关于 joint 变更的优化</p>
+<p>新的空节点，需要长时间同步 log，在完成 confchange 之前，我们可以先让其作为 learner 提前追赶集群</p>
+<hr>
+<p>完成 <code>#2</code> 的 commit 时，leader 可能并不在 <code>[cde]</code> 里，而是应该被删除的节点，此时 leader 的 quorum 里不包括它自己</p>
+<p>这让我反思自己的 election 实现，如果简单统计个数按 majority 实现，可能就会忽略这种情况，产生 bug</p>
+<p>按照 quorum 集合的定义，用函数实现，会更健壮，扩展性也更好</p>
+<hr>
+<p>针对旧节点，当它停留在 <code>#1</code> 时，可能收不到移除自己的指令</p>
+<p>此时它会不断发起选举，增加 term，干扰新集群的 election</p>
+<p>用 PreVote 方案可以解决</p>
+<p>也可以在 follower 端加上 lease 机制，租约期限内认为 leader 仍存活，从而拒绝投票</p>
+<hr>
+<p>关于 confchange 的 apply 时机</p>
+<p>如果 conf 指令需要等到 commitIndex 推进后再 apply 的话，成本很高，因为 leader 需要等待所有人的 apply ack 后才能执行下一步</p>
+<p>普通指令不需要 apply ack，而 conf 指令存在依赖关系，这样就多一轮 RPC</p>
+<p>我们不希望这样，能不能收到 conf 时立刻 apply 而不等待 commit 呢？这样就不需要 apply ack 了</p>
+<p>这样是可以的</p>
+<ul>
+<li>如果 commit 成功，那么正常运行</li>
+<li>如果 commit 失败，那么新 leader 会覆盖掉这条 log，同时我们会 apply 正确的 conf 信息</li>
+</ul>
+<blockquote>
+<p>leader 移除自己时是特例，此时要么延迟到 commit 再 apply，要么直接 transfer leader 让出领导权</p>
+</blockquote>
+<hr>
+<h1 class="heading" id="三--multi-raft">
+  三 | Multi-Raft
+  <a class="anchor" href="#%e4%b8%89--multi-raft">#</a>
+</h1>
+<h3 class="heading" id="split">
+  Split
+  <a class="anchor" href="#split">#</a>
+</h3>
+<blockquote>
+<p>reference : <a href="https://pingkai.cn/tidbcommunity/blog/7b07a25c">TiKV 源码解析系列文章（二十）Region Split 源码解析</a></p>
+</blockquote>
+<p>如果只有一个 region，那么会出现热点问题</p>
+<p>假如分成 region A 和 B，那么就可以把 A 的 leader 转移到另一台机器上，分摊服务压力</p>
+<p>因此 multi-raft 是对 ”服务粒度“ 做了划分，split 只是在逻辑上分裂出不同的 region，细化管理权限，而不需要真正对底层数据做分片</p>
+<p>不同的 region 共用一个 raftstore 逻辑，通过 router 路由 msg</p>
+<hr>
+<p>我们引入第三方 PD 负责资源调度，这样各个节点就有可靠的信息源</p>
+<p>raftstore 就只需要负责实现 apply split 的部分，“何时触发 split” 交给 scheduler 考虑</p>
+<p>即便是本地感知到需要 split ，也需要先发信息给 scheduler，再由 scheduler 发起 split 命令</p>
+<p>split 和其他 raft 命令一样，需要通过 propose-commit-apply 流程才能应用</p>
+<blockquote>
+<p>与 confchange 不同，split 并不影响 quorum 的定义</p>
+</blockquote>
+<hr>
+<p>apply split 做的事情：</p>
+<ul>
+<li>更新 region epoch（<code>version, conf_ver</code>）</li>
+<li>修改旧 region 的元信息</li>
+<li>初始化新 region 的元信息，使得可以读写状态机</li>
+<li>将新 raft 节点注册到 router（log 为空，index 初始化为 5 与重启节点区分）</li>
+</ul>
+<p>这里旧 region 继承了所有的旧 log，conf 成员不变</p>
+<p>因此旧 region 的 leader 负责将 split 指令同步到落后的 follower 上</p>
+<p>在此之前，即使新 region 的 leader 向 follower 发起同步，router 也会因为找不到新 region 而丢弃信息（因为落后节点还没有 apply split 指令）</p>
+<blockquote>
+<p>以上讨论了跨 version 的同步问题，跨 conf_ver 的处理之前也已经说过</p>
+</blockquote>
+<p>这里 split 时，只修改了 region 的 version，没有对 raft peer 做调整，因此 router 是可以收到旧 region 的信息的</p>
+<hr>
+<p>注意，新 region 在初始化 raft peer 之后，是无法提供服务的（没有选出 leader），也就没法通知 PD 产生了新 region</p>
+<p>而旧 region 已经在 PD 中完成注册，这导致 PD 会有一段无法服务的真空区间</p>
+<p>这是不可避免的，因为 quorum 执行 apply 需要时间，在新 region 出现 可工作的 quorum 之前，无法选出 leader</p>
+<hr>
+<p>另外 split 会影响 lease read，我们选择让 leader 在收到 split log 之后不再续约 lease，直到完成 apply split</p>
+<hr>
+<h3 class="heading" id="merge">
+  Merge
+  <a class="anchor" href="#merge">#</a>
+</h3>
+<p>Merge 分三阶段，假设 A 吞并 B：</p>
+<ol>
+<li>PD 将两个 region A 和 B 的 range 和 peers 都对齐，触发 Merge</li>
+<li>我们先在 B 上同步一条 PrepareMerge 信息，让 B leader 停止服务，但还会继续同步 log（需要保证所有 uncommited 的日志都不影响 epoch 服务）</li>
+<li>随后在 A 上同步一条 CommitMerge 信息，将 region 合并到 A，并且将 B 的旧服务路由到 A</li>
+</ol>
+<p>这里的细节：</p>
+<ul>
+<li>
+<p>Prepare 阶段，B 会锁住，并定期检查 A 是否有变化（PD 可能会调度 A），如果 A 与 PrepareMerge 开始时的状态不一致了，就 rollback merge</p>
+</li>
+<li>
+<p>Prepare 完成时，如何通知 A 开始 Commit 呢？</p>
+</li>
+<li>
+<p>这里我们让 B 中的本地 peer 定期向 A 发 Commit，如果 A peer 不是 leader 就丢弃</p>
+</li>
+<li>
+<p>这样避免走网络通信，简化实现</p>
+</li>
+<li>
+<p>A 完成 log 同步时，应用 CommitMerge，合并 region range，并将 B 标记为已删除，完成合并</p>
+</li>
+</ul>
+<p>merge 太难，不展开讲了</p>
+<hr>
+<p>讨论一下 Multi-raft 和单 raft 相比，引入了哪些复杂交互</p>
+<p>一般 raft 保证一定只有一个 leader，也就是 ”服务入口“ 是唯一的</p>
+<p>而 Multi 引入多 region，服务入口开始不一致，这导致 client 需要通过 PD 重新路由，region 需要随时通知 PD</p>
+<p>PD 与 RaftStore 的交互存在延迟，这就引入网络问题，请求 split 到确认发起 split 之间，raftstore 可能就插入了一条 confChange log</p>
+<p>此时，我们需要在 Apply 上动手，既然这些 log 会修改 Epoch，那么我们就加一层 Epoch 判断即可，这样就可以过滤掉类似的“过期”指令</p>
+<p>从 Apply 层进行过滤，就自动保证了这些 cmd 不会在同一个 Epoch 上产生分歧</p>
+<hr>
+<p>那么 Apply 层挡不住哪些操作呢？</p>
+<p>首先是跳过 Apply 的 Snapshot，Follower 可能只修改了 db，而没有修改 region 元数据，这就需要 snapshot 携带 Epoch 等信息</p>
+<p>或者我们可以截断 Snapshot，重启一次，这次 Snapshot 带有最新的信息</p>
+<p>还有 lease read，与租约的交互需要重新考虑</p>
+<hr>
+<h3 class="heading" id="事务层">
+  事务层
+  <a class="anchor" href="#%e4%ba%8b%e5%8a%a1%e5%b1%82">#</a>
+</h3>
+<blockquote>
+<p>reference : <a href="https://pingkai.cn/tidbcommunity/blog/780d38e7">TiKV 事务模型概览，Google Spanner 开源实现</a></p>
+</blockquote>
+<p>跨 region 的事务，用 Percolator + MVCC 来管理</p>
+<p>相比于 2PC，Percolator 不需要中心管理器，只需要一个分配时间戳的 TSO</p>
+<p>Percolator 流程：</p>
+<ul>
+<li>Prepare，选一个 key 作为 primary key，然后给各个 key 上加锁，并记录一个指向 primary key 的指针</li>
+<li>Commit，提交 primary key 即可，并删除 lock，事务结束</li>
+<li>其他 key 的 commit 是异步的，通过检查 primary key 来执行</li>
+</ul>
+<p>如果 primary 提交失败了，就回滚</p>
+<p>其他 key 在读时，如果发现有锁，就去查 primary key 的状态</p>
+<ul>
+<li>如果 primary 还有锁，说明事务还没提交</li>
+<li>如果没有锁，并且 primary 写成功了，说明 commit 成功，直接提交 prepare 里的内容</li>
+<li>如果没锁，primary写失败，说明 rollback了，同样 rollback</li>
+</ul>
+<p>如果是 2PC，其他人只能被动等待 manager 的 commit 信号</p>
+<p>这里可以主动去查询 primary key，得知事务状态</p>
+<p>相比之下， Percolator 只需要一轮对 primary key 的 commit，相比之下 2PC 需要对每个 key 都来一轮</p>
+<h1 class="heading" id="总结">
+  总结
+  <a class="anchor" href="#%e6%80%bb%e7%bb%93">#</a>
+</h1>
+<p>本文以 TiKV 为参考，梳理了 Raft 相关的知识</p>
+<p>理解上层的协作后，对 lab 实现的恐惧也消失了，之前做的还是有偷懒的地方</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/15445-%E5%A4%8D%E7%9B%98/">
+                        15445 复盘
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>
