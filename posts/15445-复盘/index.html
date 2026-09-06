@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    15445 复盘 | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/15445-%E5%A4%8D%E7%9B%98/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/15445-%E5%A4%8D%E7%9B%98/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="15445 复盘">
+  <meta property="og:description" content="Buffer、锁并发、MVCC">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-04-01T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-04-01T00:00:00+00:00">
+    <meta property="article:tag" content="Cpp">
+    <meta property="article:tag" content="Db">
+    <meta property="article:tag" content="Experience">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/15445-%E5%A4%8D%E7%9B%98/">15445 复盘</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">15445 复盘</h1>
+        <p class="single-summary">Buffer、锁并发、MVCC</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2026-04-01T00:00:00&#43;00:00">April 1, 2026</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>简历上写了 15445，带着这半年的知识看一遍，还是有新东西的，之前写的 blog 没有营养，所以再写一篇复盘 blog</p>
+<p>这次复盘侧重扩展与辨析，不会深入实现细节</p>
+<h1 class="heading" id="一--buffer-pool-与-os-cache-的比较">
+  一 | Buffer Pool 与 OS Cache 的比较
+  <a class="anchor" href="#%e4%b8%80--buffer-pool-%e4%b8%8e-os-cache-%e7%9a%84%e6%af%94%e8%be%83">#</a>
+</h1>
+<p>简单过一下实现：</p>
+<ul>
+<li>LRU-K 针对范围读的效果，比 lru1 更好</li>
+<li>汰换、refcount、raii，负责自动管理资源</li>
+<li>数据存在固定的 frame 里，其实是将文件内容映射到内存中，供线程读写，再通过 flush 完成同步</li>
+</ul>
+<p>这里只讨论一个高频问题，直接说结论</p>
+<ul>
+<li>
+<p>事务、WAL 的存在，使得写盘时间需要严格控制，交给 OS 会破坏安全性</p>
+</li>
+<li>
+<p>性能上，db 可以针对性进行优化，比如汰换策略，预热缓存</p>
+</li>
+</ul>
+<p>抽象层不同，导致我们可以控制的自由度也不同，这就是不使用 mmap 的理由</p>
+<hr>
+<p>这里带一下 mmap 的流程：</p>
+<ul>
+<li>触发中断，陷入 syscall</li>
+<li>分配对应的虚拟地址，加入查询表</li>
+<li>不分配物理地址映射，等待后续触发 page-fault</li>
+</ul>
+<p>触发 page-fault 后：</p>
+<ul>
+<li>查表得知存在 mmap 映射</li>
+<li>kernel 将文件读入到 page cache，将 va 直接映射到缓存上的地址</li>
+<li>所有通过 mmap 的 IO，都是在 page cache 上操作</li>
+</ul>
+<blockquote>
+<p>这里意外补充了一个 OS 的点，虚拟内存，是虚拟地址到物理地址的映射，不会映射到磁盘， mmap 也是靠 page cache 实现的，之前读 LevelDB 没有意识到这一层</p>
+</blockquote>
+<h1 class="heading" id="二--b树的-crabing-原则">
+  二 | B+树的 Crabing 原则
+  <a class="anchor" href="#%e4%ba%8c--b%e6%a0%91%e7%9a%84-crabing-%e5%8e%9f%e5%88%99">#</a>
+</h1>
+<p>当时写 lab 没考虑并发优化，直接用了从上到下的悲观锁，理解不到位</p>
+<p>要最大限度地获得并发性能，我们就要避免多余的 lock</p>
+<p>Crab 的动机：在一次 IO 流程里，如果一个 node 不可能分裂、合并，那么它的父节点也可以认为是安全的，此时可以释放祖先节点上的锁</p>
+<p>这样，我们拿锁时，可以逐个检查是否安全，及时释放</p>
+<p>加锁顺序有一个细节，需要先获取新锁，再释放旧锁</p>
+<p>如果顺序颠倒，会出现一个中间态，两个锁都不被我们持有，这样会导致其他事务介入，破坏隔离性</p>
+<h1 class="heading" id="三--迭代器的加锁问题">
+  三 | 迭代器的加锁问题
+  <a class="anchor" href="#%e4%b8%89--%e8%bf%ad%e4%bb%a3%e5%99%a8%e7%9a%84%e5%8a%a0%e9%94%81%e9%97%ae%e9%a2%98">#</a>
+</h1>
+<blockquote>
+<p>本文的主要灵感来源，这就是饺子醋了</p>
+</blockquote>
+<p>B+ 树的迭代器，在 leaf 层上进行线性扫描</p>
+<blockquote>
+<p>假设这样一个场景：</p>
+<ul>
+<li>线程 A 申请了一个迭代器，读到 leaf 3，持有 3 的读锁</li>
+<li>线程 B 正在插入，恰好在 leaf 4 上发生了分裂，持有 4 的写锁</li>
+</ul>
+<p>现在 A 执行 <code>next()</code>，请求 4 的读锁
+同时，B 进行分裂操作，需要修改 leaf 3 上的 next 指针，请求 3 的写锁</p>
+<p>此时发生死锁</p>
+</blockquote>
+<p>这本质是两种语义的冲突：迭代器从左向右拿锁，分裂从右向左拿锁</p>
+<hr>
+<p>一个明显的解决方案是，让其中一方暂时放弃自己的锁，给另一方 ”让路“</p>
+<blockquote>
+<p>B 让路，暂时释放 leaf 4 的锁</p>
+</blockquote>
+<p>那么，A 将会更进一步，读到 leaf4，但此时 4 已是被 B 修改过的 ”脏页“，处在分裂的中间态，读取不安全</p>
+<p>如果让 B 先修改 next 指针，让路给 A，再进行实际的分裂操作呢？仔细想想也不行，先斩后奏，可能 B 在分裂途中就宕机了，不安全</p>
+<p>退一步，分裂语义应该是 atomic 的，最后的替换也同样</p>
+<p>这里我想到 RCU 的做法，让 B 在一块新空间上写，而不在 4 上原地修改，完成时，再一次性替换 next 指针就可以了</p>
+<p>这是 shadow-paging 的想法</p>
+<hr>
+<p>但这需要引入磁盘上的 GC</p>
+<p>当 B 完成分裂后，旧的 leaf 4 就失效了，但 A 仍有读取 4 的可能，所以不能逐出 buffer，也不能直接删除磁盘上的 page</p>
+<p>此时需要将 leaf 4 存到一个负责 GC 的数据结构，与 buffer 进行交互，当 buffer 中的 pin_count 归零，逐出 page 时，就可以通知 GC 管理器了</p>
+<p>这还不安全，pin 为 0 并不代表后续没有引用了，如果另一个 C 在 B 之前启动，它还是可能持有 leaf4 的指针，只是还没来得及载入 buffer</p>
+<p>因此我们的 GC 策略会更保守，需要以 B 为划分点，等待旧 Epoch 的线程都结束后才能回收资源</p>
+<hr>
+<p>可以预见到，让 B 这样一个写线程让路，引入的额外复杂度是巨大的</p>
+<blockquote>
+<p>A 让路，暂时释放 leaf3 上的锁，随后通过 peek 回到 last_key</p>
+</blockquote>
+<p>相比之下，让 A 这样一个读线程让路的代价就很小了：</p>
+<ul>
+<li>B 原地修改</li>
+<li>重新 peek 的语义是自洽的</li>
+<li>可能会读到其他事务的写</li>
+</ul>
+<hr>
+<p>bustub 中，没有考虑上面 GC 的问题，应该是简化了这部分逻辑</p>
+<p>能通过测试，主要是我加的锁太多了，没出现这种并发情况</p>
+<p>所以还是有 bug 的，delete 时，需要按照 “删除引用 -&gt; 删除page” 的顺序来，这样就从上层规避了 ABA 问题</p>
+<p>要增加这部分逻辑，我们从问题入手，删除之所以不安全，是因为旧线程会从旧的引用读出损坏数据</p>
+<p>因此我们有两种解决角度：</p>
+<ul>
+<li>延迟删除，推迟到事务 commit 时再删除，就不会读出坏数据</li>
+<li>破坏旧引用，在 buffer 中标记为 delete，迫使旧线程触发读失败，重启事务，这样读到的引用就是新的了</li>
+</ul>
+<hr>
+<p>简单说一下，除此之外的方案：</p>
+<ol>
+<li>协议限制，锁获取的顺序，必须从左到右，这样 B 需要分裂时，会从根节点开始重试，重新获取左边 leaf 的写锁</li>
+<li>乐观读锁，迭代器不加 read 锁，在 page 上增加 version 字段，每次先读数据，比较前后 version 是否一致，不一致说明有变化，就重试读，从根节点开始 seek</li>
+<li><a href="https://www.codedump.info/post/20220807-weekly-23/">B-Link Tree</a> 是B+Tree的一种变形，引入了high key和指向右兄弟节点的link指针，通过这两个数据的引入，在并发查找时可以作为节点是否发生变更的根据（没有学，TODO）</li>
+<li>MVCC 并发读，不过空间放大严重</li>
+</ol>
+<h1 class="heading" id="四--buffer-pool-的定位">
+  四 | Buffer Pool 的定位
+  <a class="anchor" href="#%e5%9b%9b--buffer-pool-%e7%9a%84%e5%ae%9a%e4%bd%8d">#</a>
+</h1>
+<p>意外谈到了 GC，我才发现对于 Buffer 的理解不是很到位</p>
+<p>之前觉得 buffer 仅仅起到 cache 加速读的作用</p>
+<p>Buffer 更多的作用，是为 DB 和 File 提供一个在内存上交互的“中间层”，否则我们是不可以直接操作磁盘文件的</p>
+<p>Buffer 就是文件在磁盘中的 “映射”，我们用 <code>Flush</code> 来同步这种映射，将 db 的修改写回到磁盘，cache 只是它的一个副作用</p>
+<h1 class="heading" id="五--mvcc">
+  五 | MVCC
+  <a class="anchor" href="#%e4%ba%94--mvcc">#</a>
+</h1>
+<p>回到并发控制的话题</p>
+<p>另一种方法就是 MVCC，为每次修改都保留快照，同时为事务分配事件戳，这样从可见度上就屏蔽了临界区的问题，也就不需要使用锁</p>
+<p>这样 A 可以读时刻 3 的版本，B 可以写时刻 4 的版本，二者互不冲突</p>
+<p>另外，这同样引入了 GC，需要定期清理那些过期的 version</p>
+<hr>
+<p>我们先讨论布局方案，两种：</p>
+<ul>
+<li>全量复制</li>
+<li>undo log</li>
+</ul>
+<p>前者，每次都完整的复制出一个 page，仅仅维护 version 指针列表即可，缺点是写放大过于明显</p>
+<p>后者，每次只记录增量变化，读出时，再遍历 undolog 进行即时回溯，缺点是增加了读开销</p>
+<blockquote>
+<p>这里和 Leveldb 呼应了</p>
+<p>在 LSM 树中，SSTable File 级别的 MVCC 就是前者，依靠 VersionSet 来进行访问</p>
+<p>而 Table 内部的 MVCC 可以同时以两种方法解读，我认为记录 timestamp 的方案更接近后者，需要扫描很多 log 才能得出读结果</p>
+<p>File 层面的变动频率非常小，因此采用 copy 方案是可以接受的</p>
+</blockquote>
+<p>另外，针对 delete 操作，copy 方案会选择用墓碑标记，而 undo 方案也会做明显记录</p>
+<hr>
+<p>我认为 MVCC 不适用于 B+ 树的场景，粒度太小了</p>
+<p>Bustub 的 P4 也只是在 Table 上增加 MVCC，使用 Undo 方案</p>
+<p>实现分几步：</p>
+<ul>
+<li>对比新旧 data，生成 undo log</li>
+<li>事务管理中，增加 version 时间戳的控制</li>
+<li>访问数据时，应该加一层带有 version 的抽象，屏蔽底层的 undo log</li>
+<li>简单的 GC，用 watermark 标记应该回收的 undo log</li>
+</ul>
+<hr>
+<p>另外注意存在 “write-write” 冲突，也就是两个事务，同时对一个 version 做修改的情况</p>
+<p>undo log 是针对数据的，在可见性上是被所有事务共享的，这也就导致，一个事务可以看到另一个事务的写，破坏了 MVCC 所提供的快照隔离</p>
+<p>遇到这种冲突，应该选择 abort，重试事务</p>
+<hr>
+<p>为什么会出现写写冲突呢？</p>
+<p>我认为是 snapshot 级别的限制，快照本身就是只读的副本，我们仅仅是借用 MVCC 的壳子来实现这种隔离</p>
+<p>而写写冲突，在同一个 snapshot 上做修改，就像 git 分出了两个 branch，但是 snapshot 是不允许 merge 的</p>
+<p>因此我们才要 abort，将 snapshot 流变成线性的</p>
+<blockquote>
+<p>为什么我在 Leveldb 没有想到这个问题呢？原来 Leveldb 是不支持事务的</p>
+</blockquote>
+<hr>
+<p>另外，bustub 在实现算子 MVCC 时，还需要考虑与 index 的交互</p>
+<p>B+ 树存的是 key 到 RID 的映射，而 MVCC 是针对 RID 内容的，不影响 B+ 树</p>
+<p>24fall 的 P4 ，Task3 实现 RID 层的 MVCC，而 Task4 就增加对 index 的支持，这样 index 就不是映射到 RID 与单一地址了，而是映射到 RID 与其对应的 version entry</p>
+<p>这就与 bustub 本身的 table 数据布局强相关了，不懂但不关键，这里不展开了</p>
+<blockquote>
+<p>当时写 P4 已经是八月底了，要应对 bustub 的 tuple、table 等原有的石山对象，阅读难度很大，越写越烦躁，就直接上 vibe-coding 了，错过了对 MVCC 本身的思考</p>
+<p>不过也见识到了 llm 在复杂系统中的上限，需要手工调教 + review 才能工作，对我而言，它的优势区间还是在 <code>grep</code> 串联上下文这一块</p>
+</blockquote>
+<h1 class="heading" id="六--查询层">
+  六 | 查询层
+  <a class="anchor" href="#%e5%85%ad--%e6%9f%a5%e8%af%a2%e5%b1%82">#</a>
+</h1>
+<blockquote>
+<p>P3 的内容，我不是很喜欢，过一下各种算子的实现，当常见八股准备了</p>
+<p>Reference</p>
+<ul>
+<li><a href="https://zhuanlan.zhihu.com/p/679864362">CMU15-445 2023 Fall Project#3 - Query Execution</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/587566135">做个数据库：2022 CMU15-445 Project3 Query Execution</a></li>
+</ul>
+</blockquote>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 652; --h: 501;">
+        <img loading="lazy" alt="" src="/posts/15445-%E5%A4%8D%E7%9B%98/assets/project.png" width="652" height="501">
+    </div>
+
+    
+</figure>
+</p>
+<p>SQL 由四个模块解析：</p>
+<ul>
+<li>parser，语法分析</li>
+<li>binder，绑定到具体对象</li>
+<li>planner，生成算子构成的查询树</li>
+<li>optimizer，优化查询树</li>
+</ul>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 656; --h: 354;">
+        <img loading="lazy" alt="" src="/posts/15445-%E5%A4%8D%E7%9B%98/assets/sql.png" width="656" height="354">
+    </div>
+
+    
+</figure>
+</p>
+<p>这里贴一下 table 布局的实现，读过 leveldb 后也理解了，值得注意的是，这里的 <code>Table Page</code> 是定长的，因此从两头向中间增长</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 887; --h: 846;">
+        <img loading="lazy" alt="" src="/posts/15445-%E5%A4%8D%E7%9B%98/assets/table.png" width="887" height="846">
+    </div>
+
+    
+</figure>
+</p>
+<hr>
+<ul>
+<li>Scan 算子调用 TableIterator 进行扫描</li>
+<li>Insert 直接 append Tuple</li>
+<li>Delete 采用墓碑删除</li>
+<li>IndexScan 调用 P2 实现的 Index 迭代器</li>
+<li>NestLoopJoin，双重循环实现，可以用一层 index 优化复杂度，也可以以 block 为粒度，减少 IO 次数</li>
+<li>HashJoin，一边建hash表，另一边计算 hash 值，查表</li>
+<li>聚合算子，用 hash 实现</li>
+<li>sort、limit、fliter、top-n</li>
+<li>对于外部归并排序，我们需要将中间结果存到 SortPage 上，然后用 MergeIterator 一轮轮归并</li>
+</ul>
+<hr>
+<p>Nest 、Hash 、MergeSort 三种 Join 的对比</p>
+<p>Nest：</p>
+<ul>
+<li>两个表，一大一小，小表存在内存里，只需 IO 大表</li>
+<li>可利用 Index 减少复杂度</li>
+<li>非等值 Join</li>
+<li>如果没有优化，复杂度非常高</li>
+</ul>
+<p>Hash：</p>
+<ul>
+<li>两个大表，建表完成后是线性复杂度</li>
+<li>等值 Join</li>
+<li>缺点：输出结果是乱序的，不利于后续处理</li>
+<li>另外 hash 表 也占用了额外的内存开销</li>
+</ul>
+<p>MergeSort：</p>
+<ul>
+<li>两表分别排序，然后双指针扫描</li>
+<li>IO 开销巨大，但输出天然有序，方便后续处理</li>
+</ul>
+<hr>
+<p>bustub 采用火山模型，从根节点 pull 数据</p>
+<p>这种 pipeline 的写法节省内存，但带来了虚函数的开销，也不利于 CPU 乱序执行的分支预测</p>
+<blockquote>
+<p>刚从编译原理中学了 OOC 的对象布局，虚函数意味着每次都要根据 id 查 dispatch 表，增加指令开销</p>
+</blockquote>
+<p>其他方案：</p>
+<ol>
+<li>减少继承，用模板或者宏编程，避免编译产生额外的胶水指令</li>
+<li>batch 化，每次 <code>Next()</code> 返回一批数据，减少频率，也可以利用 SIMD</li>
+</ol>
+<hr>
+<p>三种执行模型：</p>
+<ul>
+<li>火山模型：流水线式</li>
+<li>向量化模型：batch 流</li>
+<li>代码生成：根据 SQL 动态生成中间代码，直接编译到机器码</li>
+</ul>
+<blockquote>
+<p>火山模型一次<code>Next()</code>吐出多个 Tuple， 与向量化模型的区别？</p>
+<p>后者的数据在空间上更加集中，对 Cache 友好，可以使用并行指令，前者不可以</p>
+</blockquote>
+<h1 class="heading" id="七--2pl-与隔离级别">
+  七 | 2PL 与隔离级别
+  <a class="anchor" href="#%e4%b8%83--2pl-%e4%b8%8e%e9%9a%94%e7%a6%bb%e7%ba%a7%e5%88%ab">#</a>
+</h1>
+<blockquote>
+<p>往年的并发控制都是 2PL 实现，24fall没有这个，当新东西学了</p>
+</blockquote>
+<p>2PL 要求只能有 “增长” 和 “减少” 两阶段，以此保证一致性</p>
+<p>这里的 Lock 与平时说的 Lock 要区分开，针对事务的逻辑锁叫 Lock，针对数据的物理锁叫 Latch</p>
+<p>要实现并发控制，我们需要建立一个统一的逻辑 Lock 管理器，为各个算子提供服务</p>
+<hr>
+<p>Lock 是针对具体的 table 或者 row 对象的，粒度不同</p>
+<blockquote>
+<p>假设，A 线程给 table 1 里的 row 2 加读锁，此时 B 打算给整个 table 1 都加锁</p>
+</blockquote>
+<p>如果 B 只检查 table 锁，那么他就认为这里是安全的，忽略了下面还在运行的 row 锁</p>
+<p>因此我们引入“意向锁”，加 row 锁时，也会在 table 上加锁，标记底层存在 row 锁</p>
+<p>这是“自顶向下”的加锁协议</p>
+<hr>
+<p>Lock Manager，采用队列处理各个事务的 lock 请求，以此控制隔离级别</p>
+<blockquote>
+<p>一个线程可能先获取 read lock 又获取 write lock，这需要两次重复请求，针对这种情况，我们增加了 ”锁升级” 功能，允许 读锁 原地升级成 写锁</p>
+</blockquote>
+<p>通过队列，我们建立了 “等待关系”，即 事务 A 在等待 B 释放某个锁，以此我们可以建图，进行死锁检测</p>
+<hr>
+<p>四种隔离级别：</p>
+<p>read uncommited：</p>
+<ul>
+<li>不加锁，B 可以读到 A 的脏写</li>
+</ul>
+<p>read commited：</p>
+<ul>
+<li>读数据，加 S 锁，读完数据立刻释放</li>
+<li>写数据，加 X 锁，一直到事务结束</li>
+<li>解决”脏读“，在 A 写入完成前，B 不可能获取到 S 锁</li>
+<li>存在”不可重复读“，释放 S 锁后缺乏保护，A 可以修改 B 已经读过的数据，提交后释放 X 锁，此时 B 可以重复读到 A 的写入</li>
+</ul>
+<p>repeatable read：</p>
+<ul>
+<li>读数据，加 S 锁，直到事务结束</li>
+<li>这样 A 直到 B 结束才能获取 X 锁</li>
+<li>存在“幻读”：B 读不到 A 原地修改的数据，但可以读到 A 新插入的数据（不知道新数据的存在，因此也没办法加锁保护）</li>
+</ul>
+<p>serializable：</p>
+<ul>
+<li>对整个 Range 加锁，不允许插入数据</li>
+<li>解决幻读，但性能差</li>
+</ul>
+<hr>
+<blockquote>
+<p>：说说 ACID，其中 C 和 CAP 的 C 有啥区别。ACID 分别通过什么技术来实现</p>
+<p>先回答 C</p>
+<p>C 是一致性，单机语境下，C 是指两个相关的数据对象，在逻辑上是否一致，对外的行为表现，是否是自洽的</p>
+<p>而在分布式语境下，C 单纯指不同机器上的数据是否同步，往高了说，其实也是对外的行为表现，是否自洽</p>
+<p>C 是一个需求属性，用于证明系统是正确的</p>
+<p>A 是原子性，用 Undolog 实现 commit or rollback</p>
+<p>I 是隔离性，并行事务不应该感知到彼此，利用并发控制（2PL 与 MVCC）实现</p>
+<p>D 是持久性，也就是崩溃恢复能力，用 WAL 实现</p>
+</blockquote>
+<h1 class="heading" id="总结">
+  总结
+  <a class="anchor" href="#%e6%80%bb%e7%bb%93">#</a>
+</h1>
+<p>以上，借着 bustub 的底子，大致串联了一下数据库的知识体系</p>
+<p>不谈代码，跳出实现来谈概念和取舍，感觉还是很舒服的，写完这篇复盘也增长了不少自信，希望一切顺利</p>
+<p>TODO:写偏斜（Write Skew）与丢失更新（Lost Updates）</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/%E5%88%86%E5%B8%83%E5%BC%8F/2pc-spanner/">
+                        分布式论文阅读 II
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/tinykv-%E5%A4%8D%E7%9B%98/">
+                        TinyKV 复盘
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    重读 xv6（I） | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/i/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="重读 xv6（I）">
+  <meta property="og:description" content="xv6 启动与概览">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-10-26T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-10-26T00:00:00+00:00">
+    <meta property="article:tag" content="C">
+    <meta property="article:tag" content="Xv6">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/i/">重读 xv6（I）</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">重读 xv6（I）</h1>
+        <p class="single-summary">xv6 启动与概览</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-10-26T00:00:00&#43;00:00">October 26, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="前言">
+  前言
+  <a class="anchor" href="#%e5%89%8d%e8%a8%80">#</a>
+</h1>
+<p>五月份我做完 <em><strong>MIT6.1810</strong></em> 的 Lab 后，一直没有做回顾</p>
+<p>虽然有零散的 xv6 book 与 源码阅读笔记，还是没有完成把知识体系化的工作</p>
+<p>因此我决定重读一次 <strong>xv6</strong> ，一方面是为了复盘项目，捋一遍 OS 设计的 best parctice，另一方面，也是通过产出文本的手段来丰富个人博客，准备面试</p>
+<p>本系列会以 <strong>程序流</strong> 的视角展开写作，从而表现系统中的逻辑关联，编排顺序较为随意</p>
+<p>以讨论设计为主，对基础概念会一笔带过，不会大量罗列代码，请自行结合源码阅读</p>
+<h1 class="heading" id="一">
+  一
+  <a class="anchor" href="#%e4%b8%80">#</a>
+</h1>
+<p>我们从启动流程开始，检查初始化过程，认识 xv6 的系统模块</p>
+<blockquote>
+<p>源码文件：</p>
+<ul>
+<li><code>entry.S</code></li>
+<li><code>start.c</code></li>
+<li><code>main.c</code></li>
+</ul>
+</blockquote>
+<p>启动流程：</p>
+<ol>
+<li>机器启动，将 kernel 加载到内存</li>
+<li>运行 <code>entry.S</code>，为每个 CPU 设置运行栈，此时为 <em><strong>machine mode</strong></em></li>
+<li>运行 <code>start</code>，进行一些初始配置，切换为 <em><strong>kernel mode</strong></em></li>
+<li>运行 <code>main</code>，初始化各个模块，创建首个进程，切换为 <em><strong>user mode</strong></em></li>
+<li>运行 <code>init</code>，设置标准 I/O，启动 <code>shell</code>，开始提供服务</li>
+</ol>
+<h2 class="heading" id="混沌状态">
+  混沌状态
+  <a class="anchor" href="#%e6%b7%b7%e6%b2%8c%e7%8a%b6%e6%80%81">#</a>
+</h2>
+<p>机器刚刚启动时，我们还没有完成好基础设施的配置，如何完成上面的流程呢？</p>
+<ul>
+<li>加载 kernel，用的是预留的 load 程序</li>
+<li>将 <code>entry.S</code> 放在 kernel 的起始地址 <code>0x80000000</code>，作为物理上的程序起点</li>
+<li>通过 <code>call start</code> ，并重定向 <code>ret</code> 的返回地址到 <code>main</code> ，依次执行 <code>start</code>, <code>main</code></li>
+<li>再调用<code>userinit()</code>，通过调度器自然转到 <code>init</code> 进程，正常调用 <code>shell</code> 循环</li>
+</ul>
+<p>到这里完成开机，成功地将启动过程 <strong>透明化</strong></p>
+<h2 class="heading" id="初始化模块">
+  初始化模块
+  <a class="anchor" href="#%e5%88%9d%e5%a7%8b%e5%8c%96%e6%a8%a1%e5%9d%97">#</a>
+</h2>
+<p>下面是启动过程中涉及到的模块</p>
+<p><code>start</code> ：</p>
+<ul>
+<li><strong>时钟中断</strong>，用于虚拟化 CPU，切换进程</li>
+<li><strong>页表映射</strong>，用于虚拟化内存地址</li>
+</ul>
+<p><code>main</code> ：</p>
+<ul>
+<li><strong>内存池、分页</strong>，用于分配用户空间，虚拟化内存</li>
+<li><strong>trap 中断</strong>，用于响应异常，实现系统调用</li>
+<li><strong>进程管理</strong>，用于分配资源，管理进程</li>
+<li><strong>文件系统</strong>，用于控制文件读写</li>
+<li><strong>PLIC、设备驱动、磁盘</strong></li>
+</ul>
+<p>加上用于控制并发的<strong>锁</strong> ，基本已经涵盖我们所需要的基础设施，这些就是我们讨论的主题了</p>
+<h2 class="heading" id="第一个进程">
+  第一个进程
+  <a class="anchor" href="#%e7%ac%ac%e4%b8%80%e4%b8%aa%e8%bf%9b%e7%a8%8b">#</a>
+</h2>
+<p>初始化结束后，<code>main</code> 会调用 <code>proc.c/userinit</code> ，创建第一个进程 <code>initcode.S</code>，引导执行 <code>init.c</code> 程序</p>
+<p>随后 <code>init</code> 再 <code>fork</code> 第二个进程 <code>shell</code>，作为 <em>dummy proc</em> 进入死循环，等待停机</p>
+<p>而 <code>shell</code> 负责接收用户输入，提供 OS 服务，启动流程结束</p>
+<h1 class="heading" id="二">
+  二
+  <a class="anchor" href="#%e4%ba%8c">#</a>
+</h1>
+<p>下面讨论 OS 服务的底层逻辑</p>
+<h2 class="heading" id="分时系统">
+  分时系统
+  <a class="anchor" href="#%e5%88%86%e6%97%b6%e7%b3%bb%e7%bb%9f">#</a>
+</h2>
+<p>OS 需要同时响应多个用户的任务，因此产生 <strong>虚拟化 CPU</strong> 的设计</p>
+<p>我们为用户进程提供独占 CPU 的假象，透明地进行 CPU 调度，保存进程的执行上下文，这就是 <strong>进程管理</strong></p>
+<h2 class="heading" id="隔离空间">
+  隔离空间
+  <a class="anchor" href="#%e9%9a%94%e7%a6%bb%e7%a9%ba%e9%97%b4">#</a>
+</h2>
+<p>OS 需要对用户屏蔽底层存储的细节，因此产生 <strong>虚拟化内存</strong> 的设计</p>
+<p>我们为用户进程提供独占 内存 的假象，借此隔离不同进程，动态分配物理地址，这就是 <strong>页表机制</strong></p>
+<h2 class="heading" id="操控权限">
+  操控权限
+  <a class="anchor" href="#%e6%93%8d%e6%8e%a7%e6%9d%83%e9%99%90">#</a>
+</h2>
+<p>我们的 CPU 数量是有限的，如果都运行着用户进程，OS kernel 又如何发挥作用呢？</p>
+<p>必须让 kernel 夺取运行权限，这种抢夺机制又可以用来处理 <strong>异常与设备 I/O</strong>，这就是 <strong>中断机制（Trap）</strong></p>
+<h2 class="heading" id="记录结果">
+  记录结果
+  <a class="anchor" href="#%e8%ae%b0%e5%bd%95%e7%bb%93%e6%9e%9c">#</a>
+</h2>
+<p>程序的运行结果需要持久化，存储在磁盘里</p>
+<p>我们不可能精确到磁道层面去考虑问题，需要 OS 层面提供足够好的抽象</p>
+<p>Unix 的选择是 <strong>文件、管道、设备</strong> 的字节流抽象，加上对文件结构的组织与保护，构成了<strong>文件系统</strong></p>
+<h2 class="heading" id="api">
+  API
+  <a class="anchor" href="#api">#</a>
+</h2>
+<p>用户编写的程序，应该是面向 OS 接口的，我们向外提供的 API 就是他们与系统交互的唯一方式</p>
+<p>但是我们也必须假设有恶意用户的存在，需要对资源进行保护，只有 kernel 才能操作敏感资源，这就是 <strong>系统调用</strong> 的想法</p>
+<hr>
+<p>以上就是这些设计的动机，我们会分别进行展开讨论</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E4%BB%8E%E5%A4%B4%E5%86%99%E4%B8%80%E4%B8%AA-b&#43;tree/">
+                        从头写一个 B&#43;Tree
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/ii/">
+                        重读 xv6（II）
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    重读 xv6（VII） | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/vii/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="重读 xv6（VII）">
+  <meta property="og:description" content="$ echo hello | cat &gt; hello.txt">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-11-01T02:25:04+08:00">
+    <meta property="article:modified_time" content="2025-11-01T02:25:04+08:00">
+    <meta property="article:tag" content="C">
+    <meta property="article:tag" content="Xv6">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vii/">重读 xv6（VII）</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">重读 xv6（VII）</h1>
+        <p class="single-summary"><code>$ echo hello | cat &gt; hello.txt</code></p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-11-01T02:25:04&#43;08:00">November 1, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="九">
+  九
+  <a class="anchor" href="#%e4%b9%9d">#</a>
+</h1>
+<p>我们已经讨论了 <em><strong>xv6</strong></em> 所有的模块设计，是时候出一个总集篇了</p>
+<p>以下是我们要回答的终极问题：</p>
+<blockquote>
+<p><em><strong>当用户输入并运行 <code>echo hello | cat &gt; hello.txt</code> 时，xv6 内部发生了什么？</strong></em></p>
+</blockquote>
+<h2 class="heading" id="敲下键盘之前">
+  敲下键盘之前
+  <a class="anchor" href="#%e6%95%b2%e4%b8%8b%e9%94%ae%e7%9b%98%e4%b9%8b%e5%89%8d">#</a>
+</h2>
+<p><em><strong>源码文件：<code>sh.c</code>、<code>util.c</code></strong></em></p>
+<blockquote>
+<p>……shell 正在运行，打印出 <code>$</code>，调用 <code>util/gets</code> 等待用户输入命令</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-weight:bold;text-decoration:underline">char</span>*
+</span></span><span style="display:flex;"><span><span style="color:#666;font-weight:bold;font-style:italic">gets</span>(<span style="font-weight:bold;text-decoration:underline">char</span> *buf, <span style="font-weight:bold;text-decoration:underline">int</span> max)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold;text-decoration:underline">int</span> i, cc;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold;text-decoration:underline">char</span> c;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold;text-decoration:underline">for</span>(i=0; i+1 &lt; max; ){
+</span></span><span style="display:flex;"><span>    cc = <span style="color:#666;font-weight:bold;font-style:italic">read</span>(0, &amp;c, 1);
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold;text-decoration:underline">if</span>(cc &lt; 1)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold;text-decoration:underline">break</span>;
+</span></span><span style="display:flex;"><span>    buf[i++] = c;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold;text-decoration:underline">if</span>(c == <span style="color:#666;font-style:italic">&#39;\n&#39;</span> || c == <span style="color:#666;font-style:italic">&#39;\r&#39;</span>)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold;text-decoration:underline">break</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  buf[i] = <span style="color:#666;font-style:italic">&#39;\0&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold;text-decoration:underline">return</span> buf;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>Trap</code> 到内核，调用 <code>sys_read</code></p>
+<p>嵌套调用 <code>fileread</code>，发现文件描述符 0 指向 <code>device</code>，调用驱动程序 <code>consoleread</code></p>
+<blockquote>
+<p>等待用户输入……</p>
+</blockquote>
+<h2 class="heading" id="人机交互">
+  人机交互
+  <a class="anchor" href="#%e4%ba%ba%e6%9c%ba%e4%ba%a4%e4%ba%92">#</a>
+</h2>
+<blockquote>
+<p>用户按下键盘，输入字符 <code>e</code></p>
+</blockquote>
+<p>此时，<code>uart</code> 检测到串行接口的寄存器发生改变，认为用户发起了一次写入操作，向 <code>PLIC</code> 提出一次设备中断</p>
+<blockquote>
+<p>硬件检测到中断，<code>sys_read</code> 线程通过 <code>kernelvec</code> 陷入到驱动程序</p>
+</blockquote>
+<p><code>kerneltrap</code> 检测到 <code>%scause</code> 类型为 <code>uart</code>，调用对应的驱动函数 <code>uartintr</code></p>
+<p>嵌套调用 <code>consoleintr</code> ，从寄存器得知，输入字符为 <code>e</code></p>
+<p><code>console</code> 更新其缓冲区 <code>buffer</code> 并调用 <code>uartputc</code> 将字符 <code>e</code> 回显到屏幕</p>
+<p>从 <code>uart</code> 驱动返回到 <code>consoleread</code> 线程，从 <code>buffer</code> 读入字符 <code>e</code></p>
+<blockquote>
+<p>用户继续输入剩余的 <code>cho hello | cat &gt; hello.txt</code></p>
+</blockquote>
+<p>此时 <code>consoleread</code> 一直处于循环，等待 <code>\n</code> 结束本行输入</p>
+<blockquote>
+<p>最后用户敲击 <code>Enter</code> 键，<code>consoleread</code> 检测到 <code>\n</code>，结束输入</p>
+</blockquote>
+<p><code>consoleread</code> 结束后，从中断返回到 <code>sys_read</code> 线程</p>
+<p><code>sys_read</code> 结束读入，返回到 <code>gets</code></p>
+<p><code>gets</code> 结束输入，<code>getcmd</code> 结束，<code>shell</code> 完成 <code>command</code> 字符串输入</p>
+<h2 class="heading" id="解析命令">
+  解析命令
+  <a class="anchor" href="#%e8%a7%a3%e6%9e%90%e5%91%bd%e4%bb%a4">#</a>
+</h2>
+<blockquote>
+<p><code>shell</code> 读取到字符串 <code>echo hello | cat &gt; hello.txt</code></p>
+</blockquote>
+<p><code>shell</code> 按 <code>token</code> 解析命令：</p>
+<ol>
+<li>读入 <code>echo hello</code></li>
+<li>检查到 <code>|</code> ，认为有管道，分离出 <code>cat &gt; hello.txt</code></li>
+<li>读入 <code>cat</code></li>
+<li>检查到 <code>&gt;</code> ，认为有重定向，输出设置为 <code>hello.txt</code></li>
+</ol>
+<p>随后 <code>shell</code> 调用 <code>runcmd</code> 执行命令：</p>
+<ol>
+<li>先检测到 <code>PIPE</code>，建立管道</li>
+<li><code>fork</code> 出两个进程，重定向 IO 至管道，递归执行两个 <code>cmd</code></li>
+<li>检测到 <code>cat &gt; hello.txt</code> 是 <code>REDIR</code> 命令</li>
+<li>调用 <code>sys_open</code> 打开 <code>hello.txt</code>，重定向输出流</li>
+<li>分别执行 <code>echo</code> 与 <code>cat</code></li>
+</ol>
+<blockquote>
+<p>以上是 <code>shell</code> 的运行路径，下面我们回到 <code>runcmd</code> 执行前</p>
+</blockquote>
+<h2 class="heading" id="管道">
+  管道
+  <a class="anchor" href="#%e7%ae%a1%e9%81%93">#</a>
+</h2>
+<p>管道的实现与 <code>console</code> 类似，采用循环 <code>buffer</code>、双指针读写阻塞实现</p>
+<p>调用 <code>sys_pipe</code> 时，会用 <code>kalloc</code> 动态申请空间</p>
+<p>使用管道时，通过 <code>dup/close</code> 做文件描述符上的变换，将管道的一端指向 <code>0/1</code> 来重定向 IO</p>
+<blockquote>
+<p><code>shell</code> 创建 <code>pipe</code>，将 <code>echo</code>、<code>cat</code> 连接到管道上</p>
+</blockquote>
+<h2 class="heading" id="文件">
+  文件
+  <a class="anchor" href="#%e6%96%87%e4%bb%b6">#</a>
+</h2>
+<blockquote>
+<p><code>shell</code> 调用 <code>sys_open</code>，创建 <code>hello.txt</code> 文件</p>
+</blockquote>
+<p><code>open</code> 扫描当前 <code>path</code> 下的目录，发现没有 <code>hello.txt</code> 文件，于是调用 <code>create</code> 创建</p>
+<p>而 <code>create</code> 移动到对应的 <code>path</code>，调用 <code>ialloc</code> 获取 <code>inode</code> 资源，再将索引 <code>link</code> 加入到目录文件下，完成空文件创建</p>
+<blockquote>
+<p>完成 <code>command</code> 环境的创建，到这里我们才开始正式运行命令</p>
+</blockquote>
+<h2 class="heading" id="稍等一下">
+  稍等一下
+  <a class="anchor" href="#%e7%a8%8d%e7%ad%89%e4%b8%80%e4%b8%8b">#</a>
+</h2>
+<blockquote>
+<p><code>shell</code> 成功 <code>fork</code> 出两个进程，等待执行 <code>exec</code></p>
+</blockquote>
+<p>我们忽略了一些东西：</p>
+<ol>
+<li><code>Trap</code> 到系统调用的过程</li>
+<li><code>fork</code> 管理的进程资源</li>
+<li><code>schedule</code> 调度到新进程</li>
+</ol>
+<blockquote>
+<p>让我们把时间稍稍前调，来到 <code>fork</code> 执行前……</p>
+</blockquote>
+<h2 class="heading" id="sys_fork">
+  sys_fork
+  <a class="anchor" href="#sys_fork">#</a>
+</h2>
+<blockquote>
+<p>现在，<code>fork</code> 刚刚要执行，这是一个系统调用</p>
+</blockquote>
+<p>将系统调用号放到指定的寄存器，执行 <code>ECALL</code> 汇编指令，发出中断</p>
+<blockquote>
+<p>硬件检测到中断，跳转到 <code>TRAPPOLINE</code> 中的 <code>uservec</code></p>
+</blockquote>
+<p><code>uservec</code> 从 <code>trapframe</code> 中更换上下文，调用 <code>sys_fork</code>，复制进程资源</p>
+<blockquote>
+<p><code>Fork</code> 首先向 <code>proctable</code> 请求 <code>UNUSED</code> 进程资源，初始化页表、<code>trapframe</code>
+随后，按 <code>pagetable</code> 逐个复制内存到新进程，其他变量也一并复制</p>
+</blockquote>
+<p><code>fork</code> 结束，从 <code>userret</code> 返回用户空间</p>
+<h2 class="heading" id="调度">
+  调度
+  <a class="anchor" href="#%e8%b0%83%e5%ba%a6">#</a>
+</h2>
+<p>现在我们有三个 <code>shell</code> 进程了，准备好调度进程</p>
+<blockquote>
+<p>时钟发出中断信号，硬件中断，调用 <code>yield</code> 让出 CPU</p>
+</blockquote>
+<p>切换到 <code>scheduler</code> 线程，调用<code>swtch</code>，瞬间替换 <code>context</code></p>
+<p>此时切换到新进程的 <code>forkret</code>，调用 <code>userret</code> 回到用户态，顺利完成进程调度</p>
+<h2 class="heading" id="exec">
+  exec
+  <a class="anchor" href="#exec">#</a>
+</h2>
+<blockquote>
+<p>调用 exec 读入用户代码 <code>echo</code> 与 <code>cat</code>，创建 <code>user stack</code>，重定向程序流</p>
+</blockquote>
+<p>执行完成后，我们现在拥有三个进程 <code>shell</code>、<code>echo</code>、<code>cat</code></p>
+<blockquote>
+<p>exec 并不改变 proc 已经打开的描述符，因此重定向 IO 不受影响</p>
+</blockquote>
+<h2 class="heading" id="运行命令">
+  运行命令
+  <a class="anchor" href="#%e8%bf%90%e8%a1%8c%e5%91%bd%e4%bb%a4">#</a>
+</h2>
+<blockquote>
+<p><code>echo</code> 与 <code>cat</code> 调用 <code>read/write</code> 进行服务</p>
+</blockquote>
+<p>不过，我们已经将 0, 1 进行重定向，因此数据都通过文件或管道流动</p>
+<h2 class="heading" id="hello">
+  hello
+  <a class="anchor" href="#hello">#</a>
+</h2>
+<blockquote>
+<p>运行结束后，我们将输出结果 <code>hello</code> 写入 <code>hello.txt</code></p>
+</blockquote>
+<p>这里就直接讨论 <code>write</code> 的流程：</p>
+<ol>
+<li>找到 <code>hello.txt</code> 的 <code>inode</code> 文件</li>
+<li>查找 <code>inode</code> 的映射表，找到要写入的物理地址</li>
+<li>调用 <code>bwrite</code>，获取磁盘的 <code>buffer block</code> 映射</li>
+<li>将 <code>hello</code> 写入 <code>log</code> 层</li>
+<li>事务结束后，<code>commit</code> 将 <code>log</code> 真正写入到磁盘</li>
+</ol>
+<blockquote>
+<p>写入结束，<code>shell</code> 准备读取下一条命令</p>
+</blockquote>
+<h2 class="heading" id="虚拟内存">
+  虚拟内存
+  <a class="anchor" href="#%e8%99%9a%e6%8b%9f%e5%86%85%e5%ad%98">#</a>
+</h2>
+<p>有关虚拟内存的流程比较碎，没有提到，主要是以下部分：</p>
+<ol>
+<li><code>kalloc</code> 动态分配空间</li>
+<li>取地址时，硬件总是通过页表翻译出真实地址</li>
+<li>读写时，需要用到 <code>copyin / copyout</code> 加上页表，在不同线程之间进行内存通信</li>
+</ol>
+<h1 class="heading" id="后言">
+  后言
+  <a class="anchor" href="#%e5%90%8e%e8%a8%80">#</a>
+</h1>
+<p>最后这个问题模仿了计网自顶向下的某一章，但我的笔力驾驭不了整个运行过程，花了太多篇幅在 shell 上，安排比较随意</p>
+<p>如果能真正在头脑中运行这一串程序流，不需要弄清每个细节，只需要拨开层层抽象的洋葱，我想对 <em><strong>xv6</strong></em> 架构就认识的足够了，这也是我做源码回顾的动机</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vi/">
+                        重读 xv6（VI）
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/pager-reading/s081/1/">
+                        S081 论文拾遗
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

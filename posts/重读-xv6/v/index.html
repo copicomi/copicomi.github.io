@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    重读 xv6（V） | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/v/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="重读 xv6（V）">
+  <meta property="og:description" content="xv6 驱动、锁">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-10-29T19:23:45+08:00">
+    <meta property="article:modified_time" content="2025-10-29T19:23:45+08:00">
+    <meta property="article:tag" content="C">
+    <meta property="article:tag" content="Xv6">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/v/">重读 xv6（V）</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">重读 xv6（V）</h1>
+        <p class="single-summary">xv6 驱动、锁</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-10-29T19:23:45&#43;08:00">October 29, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="六">
+  六
+  <a class="anchor" href="#%e5%85%ad">#</a>
+</h1>
+<p>目前为止，我们讨论了 进程、调度、页表、trap 这些控制程序流的机制抽象，还没有谈论像 console、shell、文件 这些与外界进行 IO 交互的逻辑</p>
+<h2 class="heading" id="printf">
+  printf
+  <a class="anchor" href="#printf">#</a>
+</h2>
+<p><em><strong>源码文件：<code>printf.c</code></strong></em></p>
+<p><code>printf</code> 的含义不需要解释，这里只给出流程：</p>
+<ol>
+<li>遍历给定的格式字符串 <code>fmt</code></li>
+<li>扫描以 <code>%</code> 开头的占位符，绑定变量</li>
+<li>根据数据到字符的映射，调用 <code>consputc()</code> 输出到 console</li>
+</ol>
+<h2 class="heading" id="console">
+  console
+  <a class="anchor" href="#console">#</a>
+</h2>
+<p><em><strong>源码文件：<code>console.c</code></strong></em></p>
+<p><code>console</code> 状态由以下变量描述：</p>
+<ol>
+<li>buffer 缓冲区，循环数组</li>
+<li>read、write、edit 下标</li>
+</ol>
+<p><code>consoleread</code>/<code>consolewrite</code> 实现系统与终端的字符传递，将 buffer 的内容复制到用户空间</p>
+<p><code>consoleintr</code> 则是处理用户输入带来的中断事件，模拟 buffer 的状态机变化</p>
+<p><em><strong>xv6</strong></em> 提供了 <strong>文件描述符</strong> 这一抽象，使得 <code>console</code> 可以被抽象为设备/文件接口，我们就是通过 <code>read/write</code> 系统调用与用户进行交互的</p>
+<blockquote>
+<p>值得一提的是，console 在用户没有完成输入时，会调用 <code>sleep</code> 让出 CPU，等待用户继续写入字符</p>
+</blockquote>
+<h2 class="heading" id="uart">
+  uart
+  <a class="anchor" href="#uart">#</a>
+</h2>
+<p><em><strong>源码文件：<code>uart.c</code></strong></em></p>
+<p>真正负责打印字符的是 <code>uartputc</code> 函数，uart 这里可以理解为与键盘屏幕交互的硬件接口</p>
+<p>我认为这里的讨论不是重点了，我们只需要知道 uart 通过 寄存器内容 得知交互行为，传输字符到 console 的缓冲区即可</p>
+<hr>
+<p>总之，以上代码构成与控制台交互的整个逻辑，<code>consoleinit</code> 设置 console 作为设备抽象的读写函数，并调用 <code>uartinit</code> 完成硬件的初始化配置，而 <code>printfinit</code> 只是设置 <code>pr</code> 锁</p>
+<h1 class="heading" id="七">
+  七
+  <a class="anchor" href="#%e4%b8%83">#</a>
+</h1>
+<p>驱动、中断、进程、空间分配，总是会出现多个进程访问同一块数据的情况，这就是 锁（lock）的应用场景</p>
+<h2 class="heading" id="锁">
+  锁
+  <a class="anchor" href="#%e9%94%81">#</a>
+</h2>
+<p><em><strong>源码文件：<code>spinlock.c</code>，<code>sleeplock.c</code></strong></em></p>
+<p>关于自旋锁、休眠锁的实现，我觉得没有多讨论的必要了</p>
+<p>大粒度锁可以保护临界区，但减少了并发性，我们可以通过细化锁来提高效率</p>
+<blockquote>
+<p>以 <code>kalloc</code> 链表为例，多个进程同时申请内存时，会在锁上面产生冲突</p>
+<p>此时我们可以选择将 <code>pid</code> 哈希映射到多个子链表，为每个链表分别维护锁，这样不同的进程就可以在两个不同的地址同时运行 <code>kalloc</code> ，当哈希不平衡时，我们也可以夺取其他线程的锁，或者重新分配资源</p>
+</blockquote>
+<p>此外，中断与锁的交互是 os 层面特有的问题，上方的应用层意识不到中断的存在</p>
+<p>在编写内核程序时，我们需要时刻考虑随机中断是否存在死锁风险，如果有，就提前关闭中断</p>
+<blockquote>
+<p>在这里补充线程的内容，xv6 没有显式支持用户多线程，但是 内核程序、<code>scheduler</code> 都是通过 <code>trap</code> 中断 而不是 <code>swtch</code> 机制进行上下文切换的，本质上只有页表发生了变化</p>
+<p>我认为可以在 <code>thread</code> 结构体里维护类似 <code>trapframe</code> 的结构，实现用户线程间的切换<br>
+与 <code>usertrap</code> 的区别在于不需要切换 <code>%satp</code> 页表，意味着所有线程共享同一块虚拟空间，进程资源也是共享的<br>
+那么这里又可以用 lock 保护线程临界区</p>
+<p>要实现这一套逻辑，需要仿照进程重做一个粒度更小的 <code>fork</code> 体系与调度器，还需要修改 <code>clockintr</code> 的后续处理
+不过我又想到，可以由内核线程对用户线程进行调度，在 <code>trap</code> 时切换线程，这样设计也是可以的</p>
+<p>以上是临时想到的，没有经过验证</p>
+</blockquote>
+<h2 class="heading" id="设备中断">
+  设备中断
+  <a class="anchor" href="#%e8%ae%be%e5%a4%87%e4%b8%ad%e6%96%ad">#</a>
+</h2>
+<blockquote>
+<p>PLIC（Platform-Level Interrupt Controller，平台级中断控制器）是 RISC-V 架构中负责管理外设中断的标准化硬件组件，用于协调外部设备（如定时器、UART、GPIO 等）产生的中断请求，并将其路由到相应的处理器核心进行处理。</p>
+</blockquote>
+<p>硬件知识不多讨论，这里我想借机讲一下 <code>trap.c/devintr</code></p>
+<p><em><strong>xv6</strong></em> 将外部设备都抽象为 <code>device</code>，中断时通过 <code>%scause</code> 判断中断源类型，流程如下：</p>
+<ol>
+<li>检查中断来源</li>
+<li>如果来自 PLIC，说明是设备中断，调用相应的驱动程序</li>
+<li>如何来自 CPU 内部，说明是时钟中断，更新全局 <code>tick</code></li>
+</ol>
+<blockquote>
+<p><code>devintr</code> 能够区分中断是来自外部还是内部的，在 <em><strong>xv6</strong></em> 中外部设备只有 <code>uart</code> 与 <code>virtio_disk</code> 两种<br>
+我觉得驱动代码更多是与 QEMU 环境 进行交互的部分，既然 xv6 book 都没有展开讲，说明这些不是学习的重点</p>
+</blockquote>
+<p><code>usertrap</code> 通过 <code>devintr</code> 获取中断类型，决定下一步的处理</p>
+<hr>
+<p>这一部分就写到这里，罗列了一些零碎的部分，并非学习重点</p>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/iv/">
+                        重读 xv6（IV）
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/vi/">
+                        重读 xv6（VI）
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

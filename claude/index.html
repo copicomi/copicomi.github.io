@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+     | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/claude/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/claude/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="Anri’s blog">
+  <meta property="og:description" content="CLAUDE.md#This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+项目概述#这是一个基于 Hugo 静态网站生成器的个人技术博客，使用 Typo 主题，内容主要通过 Obsidian 管理和编辑。
+常用命令#本地开发## 从项目根目录运行 hugo server -D # 启动开发服务器（包含草稿） hugo server # 启动开发服务器（不含草稿） 构建与部署#hugo # 构建静态网站到 public/ 目录 ./push.sh # 部署到 GitHub Pages（会强制推送） 内容结构#文章组织#位置: posts/ 目录 格式: 每篇文章是一个子目录，包含 index.md 文件和可选的 assets/ 图片目录 Frontmatter: 使用 TOML 格式（&#43;&#43;&#43; 包围） &#43;&#43;&#43; title = &#34;文章标题&#34; date = &#34;2025-10-26&#34; summary = &#34;文章摘要&#34; categories = [&#34;分类&#34;] tags = [&#34;tag1&#34;, &#34;tag2&#34;] draft = false # 草稿设为 true math = true # 需要数学公式时启用 &#43;&#43;&#43; 主要内容系列#重读 xv6: 操作系统学习笔记，分为 I-VII 七个部分 pager-reading: 论文阅读笔记 S081/: MIT 6.S081 相关论文 分布式/: 分布式系统论文（GFS, Bigtable, Chubby, Paxos, Spanner） 课程复盘: 数据库课程实验总结 15445 复盘: CMU 15-445 Database Systems TinyKV 复盘: PingCAP 的分布式 KV 课程 实现系列: 从零实现的数据结构和算法 从头写一个 B&#43;Tree 写 Raft 时获得的一些方法论 源码阅读: Leveldb 源码笔记 图片资源#放置在对应文章目录的 assets/ 子目录中 在 Markdown 中引用: ![&#34;alt text&#34;](assets/filename.png &#34;title&#34;) 主题与配置#Typo 主题#主题位置: themes/typo/ 详细文档: https://tomfran.github.io/typo-wiki/ 特性: 暗色模式、自动标题编号、多种配色方案、评论支持 配置文件#主配置: hugo.toml（项目根目录） 自定义布局: layouts/partials/head.html（覆盖主题的 head） 文章模板: archetypes/default.md 税法（Taxonomies）#tags: 文章标签 categories: 文章分类 内容管理#Obsidian 集成#.obsidian/ 目录包含 Obsidian 的配置和插件 使用 Obsidian 进行内容编辑和管理 注意 Obsidian 的同步冲突文件（.sync-conflict-*）应被忽略 文章创建#使用 Hugo archetype 创建新文章：">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span>
+        <a href="/claude/"></a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title"></h1>
+        
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="claudemd">
+  CLAUDE.md
+  <a class="anchor" href="#claudemd">#</a>
+</h1>
+<p>This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.</p>
+<h2 class="heading" id="项目概述">
+  项目概述
+  <a class="anchor" href="#%e9%a1%b9%e7%9b%ae%e6%a6%82%e8%bf%b0">#</a>
+</h2>
+<p>这是一个基于 Hugo 静态网站生成器的个人技术博客，使用 Typo 主题，内容主要通过 Obsidian 管理和编辑。</p>
+<h2 class="heading" id="常用命令">
+  常用命令
+  <a class="anchor" href="#%e5%b8%b8%e7%94%a8%e5%91%bd%e4%bb%a4">#</a>
+</h2>
+<h3 class="heading" id="本地开发">
+  本地开发
+  <a class="anchor" href="#%e6%9c%ac%e5%9c%b0%e5%bc%80%e5%8f%91">#</a>
+</h3>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#888;font-style:italic"># 从项目根目录运行</span>
+</span></span><span style="display:flex;"><span>hugo server -D          <span style="color:#888;font-style:italic"># 启动开发服务器（包含草稿）</span>
+</span></span><span style="display:flex;"><span>hugo server             <span style="color:#888;font-style:italic"># 启动开发服务器（不含草稿）</span>
+</span></span></code></pre></div><h3 class="heading" id="构建与部署">
+  构建与部署
+  <a class="anchor" href="#%e6%9e%84%e5%bb%ba%e4%b8%8e%e9%83%a8%e7%bd%b2">#</a>
+</h3>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>hugo                    <span style="color:#888;font-style:italic"># 构建静态网站到 public/ 目录</span>
+</span></span><span style="display:flex;"><span>./push.sh               <span style="color:#888;font-style:italic"># 部署到 GitHub Pages（会强制推送）</span>
+</span></span></code></pre></div><h2 class="heading" id="内容结构">
+  内容结构
+  <a class="anchor" href="#%e5%86%85%e5%ae%b9%e7%bb%93%e6%9e%84">#</a>
+</h2>
+<h3 class="heading" id="文章组织">
+  文章组织
+  <a class="anchor" href="#%e6%96%87%e7%ab%a0%e7%bb%84%e7%bb%87">#</a>
+</h3>
+<ul>
+<li><strong>位置</strong>: <code>posts/</code> 目录</li>
+<li><strong>格式</strong>: 每篇文章是一个子目录，包含 <code>index.md</code> 文件和可选的 <code>assets/</code> 图片目录</li>
+<li><strong>Frontmatter</strong>: 使用 TOML 格式（<code>+++</code> 包围）
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-toml" data-lang="toml"><span style="display:flex;"><span><span style="">+++</span>
+</span></span><span style="display:flex;"><span>title = <span style="color:#666;font-style:italic">&#34;文章标题&#34;</span>
+</span></span><span style="display:flex;"><span>date = <span style="color:#666;font-style:italic">&#34;2025-10-26&#34;</span>
+</span></span><span style="display:flex;"><span>summary = <span style="color:#666;font-style:italic">&#34;文章摘要&#34;</span>
+</span></span><span style="display:flex;"><span>categories = [<span style="color:#666;font-style:italic">&#34;分类&#34;</span>]
+</span></span><span style="display:flex;"><span>tags = [<span style="color:#666;font-style:italic">&#34;tag1&#34;</span>, <span style="color:#666;font-style:italic">&#34;tag2&#34;</span>]
+</span></span><span style="display:flex;"><span>draft = <span style="font-weight:bold;text-decoration:underline">false</span>    <span style="color:#888;font-style:italic"># 草稿设为 true</span>
+</span></span><span style="display:flex;"><span>math = <span style="font-weight:bold;text-decoration:underline">true</span>      <span style="color:#888;font-style:italic"># 需要数学公式时启用</span>
+</span></span><span style="display:flex;"><span><span style="">+++</span>
+</span></span></code></pre></div></li>
+</ul>
+<h3 class="heading" id="主要内容系列">
+  主要内容系列
+  <a class="anchor" href="#%e4%b8%bb%e8%a6%81%e5%86%85%e5%ae%b9%e7%b3%bb%e5%88%97">#</a>
+</h3>
+<ul>
+<li><strong>重读 xv6</strong>: 操作系统学习笔记，分为 I-VII 七个部分</li>
+<li><strong>pager-reading</strong>: 论文阅读笔记
+<ul>
+<li><code>S081/</code>: MIT 6.S081 相关论文</li>
+<li><code>分布式/</code>: 分布式系统论文（GFS, Bigtable, Chubby, Paxos, Spanner）</li>
+</ul>
+</li>
+<li><strong>课程复盘</strong>: 数据库课程实验总结
+<ul>
+<li><code>15445 复盘</code>: CMU 15-445 Database Systems</li>
+<li><code>TinyKV 复盘</code>: PingCAP 的分布式 KV 课程</li>
+</ul>
+</li>
+<li><strong>实现系列</strong>: 从零实现的数据结构和算法
+<ul>
+<li><code>从头写一个 B+Tree</code></li>
+<li><code>写 Raft 时获得的一些方法论</code></li>
+</ul>
+</li>
+<li><strong>源码阅读</strong>:
+<ul>
+<li><code>Leveldb 源码笔记</code></li>
+</ul>
+</li>
+</ul>
+<h3 class="heading" id="图片资源">
+  图片资源
+  <a class="anchor" href="#%e5%9b%be%e7%89%87%e8%b5%84%e6%ba%90">#</a>
+</h3>
+<ul>
+<li>放置在对应文章目录的 <code>assets/</code> 子目录中</li>
+<li>在 Markdown 中引用: <code>![&quot;alt text&quot;](assets/filename.png &quot;title&quot;)</code></li>
+</ul>
+<h2 class="heading" id="主题与配置">
+  主题与配置
+  <a class="anchor" href="#%e4%b8%bb%e9%a2%98%e4%b8%8e%e9%85%8d%e7%bd%ae">#</a>
+</h2>
+<h3 class="heading" id="typo-主题">
+  Typo 主题
+  <a class="anchor" href="#typo-%e4%b8%bb%e9%a2%98">#</a>
+</h3>
+<ul>
+<li>主题位置: <code>themes/typo/</code></li>
+<li>详细文档: <a href="https://tomfran.github.io/typo-wiki/">https://tomfran.github.io/typo-wiki/</a></li>
+<li>特性: 暗色模式、自动标题编号、多种配色方案、评论支持</li>
+</ul>
+<h3 class="heading" id="配置文件">
+  配置文件
+  <a class="anchor" href="#%e9%85%8d%e7%bd%ae%e6%96%87%e4%bb%b6">#</a>
+</h3>
+<ul>
+<li><strong>主配置</strong>: <code>hugo.toml</code>（项目根目录）</li>
+<li><strong>自定义布局</strong>: <code>layouts/partials/head.html</code>（覆盖主题的 head）</li>
+<li><strong>文章模板</strong>: <code>archetypes/default.md</code></li>
+</ul>
+<h3 class="heading" id="税法taxonomies">
+  税法（Taxonomies）
+  <a class="anchor" href="#%e7%a8%8e%e6%b3%95taxonomies">#</a>
+</h3>
+<ul>
+<li><code>tags</code>: 文章标签</li>
+<li><code>categories</code>: 文章分类</li>
+</ul>
+<h2 class="heading" id="内容管理">
+  内容管理
+  <a class="anchor" href="#%e5%86%85%e5%ae%b9%e7%ae%a1%e7%90%86">#</a>
+</h2>
+<h3 class="heading" id="obsidian-集成">
+  Obsidian 集成
+  <a class="anchor" href="#obsidian-%e9%9b%86%e6%88%90">#</a>
+</h3>
+<ul>
+<li><code>.obsidian/</code> 目录包含 Obsidian 的配置和插件</li>
+<li>使用 Obsidian 进行内容编辑和管理</li>
+<li>注意 Obsidian 的同步冲突文件（<code>.sync-conflict-*</code>）应被忽略</li>
+</ul>
+<h3 class="heading" id="文章创建">
+  文章创建
+  <a class="anchor" href="#%e6%96%87%e7%ab%a0%e5%88%9b%e5%bb%ba">#</a>
+</h3>
+<p>使用 Hugo archetype 创建新文章：</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>hugo new posts/新文章/index.md
+</span></span></code></pre></div><h2 class="heading" id="注意事项">
+  注意事项
+  <a class="anchor" href="#%e6%b3%a8%e6%84%8f%e4%ba%8b%e9%a1%b9">#</a>
+</h2>
+<ol>
+<li><strong>路径问题</strong>: 主题文件和配置文件在项目根目录（<code>../</code>），当前工作目录是 <code>content/</code></li>
+<li><strong>中文内容</strong>: 博客主要为中文技术文章，保持中文写作风格</li>
+<li><strong>图片路径</strong>: 相对于文章目录，使用 <code>assets/</code> 子目录</li>
+<li><strong>数学公式</strong>: 需要在 frontmatter 中设置 <code>math = true</code></li>
+<li><strong>部署</strong>: <code>push.sh</code> 使用强制推送，确保在正确的分支上操作</li>
+<li><strong>草稿</strong>: 设置 <code>draft = true</code> 时，需要 <code>hugo server -D</code> 才能预览</li>
+</ol>
+<h2 class="heading" id="技术栈">
+  技术栈
+  <a class="anchor" href="#%e6%8a%80%e6%9c%af%e6%a0%88">#</a>
+</h2>
+<ul>
+<li><strong>静态生成器</strong>: Hugo</li>
+<li><strong>主题</strong>: Typo (<a href="https://github.com/tomfran/typo">https://github.com/tomfran/typo</a>)</li>
+<li><strong>编辑器</strong>: Obsidian</li>
+<li><strong>部署</strong>: GitHub Pages</li>
+<li><strong>版本控制</strong>: Git</li>
+</ul>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

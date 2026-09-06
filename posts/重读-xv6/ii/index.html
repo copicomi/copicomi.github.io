@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en-us"
+  dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://copicomi.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://copicomi.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://copicomi.github.io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://copicomi.github.io/android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://copicomi.github.io/apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    重读 xv6（II） | Anri’s blog
+    
+</title>
+
+<link rel="canonical" href="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/"/>
+
+<meta property="og:url" content="https://copicomi.github.io/posts/%E9%87%8D%E8%AF%BB-xv6/ii/">
+  <meta property="og:site_name" content="Anri’s blog">
+  <meta property="og:title" content="重读 xv6（II）">
+  <meta property="og:description" content="xv6 进程机制">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-10-27T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-10-27T00:00:00+00:00">
+    <meta property="article:tag" content="C">
+    <meta property="article:tag" content="Xv6">
+    <meta property="article:tag" content="Os">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/assets/combined.min.e7f6afb3c50c5ab501fcb9f8df55d1e16a605f545d4b7ccca3a4a80f66486f8b.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web/style.css" />
+
+<style>
+   
+  body, p, h1, h2, h3, h4, h5, h6, li, a {
+    font-family: "Comic Sans MS", "Comic Sans", "LXGW WenKai Screen", sans-serif !important;
+  }
+
+   
+   
+  code, pre, kbd, samp {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "LXGW WenKai Screen", monospace !important;
+    font-size: 0.9em;  
+  }
+</style>
+</head>
+
+
+
+
+
+
+
+<body class="dark">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://copicomi.github.io/">Anri’s blog</a>
+    </h1>
+
+    <div class="header-menu">
+        
+
+        
+        
+
+        <p
+            class="small ">
+            <a href="/" >
+                /home
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/posts" >
+                /posts
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/categories" >
+                /categories
+            </a>
+        </p>
+        
+
+        <p
+            class="small ">
+            <a href="/tags" >
+                /tags
+            </a>
+        </p>
+        
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="/">Home</a><span class="breadcrumbs-separator">/</span><a href="/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/ii/">重读 xv6（II）</a></div>
+
+
+<div >
+  <article>
+    <header class="single-intro-container">
+        
+        <h1 class="single-title">重读 xv6（II）</h1>
+        <p class="single-summary">xv6 进程机制</p>
+        
+        <div class="single-subsummary">
+          
+          <div>
+            
+            <p class="single-date">
+              <time datetime="2025-10-27T00:00:00&#43;00:00">October 27, 2025</time>
+            </p>
+          </div>
+        </div>
+        
+    </header>
+    
+    <div class="single-content">
+      <h1 class="heading" id="三">
+  三
+  <a class="anchor" href="#%e4%b8%89">#</a>
+</h1>
+<p>我们先分析进程机制的实现，源码 <code>proc.c</code></p>
+<h2 class="heading" id="创建进程">
+  创建进程
+  <a class="anchor" href="#%e5%88%9b%e5%bb%ba%e8%bf%9b%e7%a8%8b">#</a>
+</h2>
+<p><code>userinit</code> 本质上是新建 <code>init</code> 进程，再通过 <code>scheduler</code> 执行该进程</p>
+<p>我们调用 <code>allocproc()</code> 来请求进程资源，为什么使用“请求”这个字眼呢？</p>
+<p><em><strong>xv6</strong></em> 的进程资源是<strong>预先分配</strong>的，我们会维护一个固定的 <code>proctable</code>，根据状态来分配资源</p>
+<p>对于一个进程，我们需要维护以下信息：</p>
+<ol>
+<li><code>state</code>、<code>pid</code>、<code>parentid</code> 等 metadata</li>
+<li><code>trapframe</code>，用于切换 <code>syscall</code> 内核态</li>
+<li><code>pagetable</code>，用于虚拟内存</li>
+<li><code>context</code>，用于调度 CPU</li>
+</ol>
+<p><code>allocproc</code> 的流程：</p>
+<ol>
+<li>遍历 <code>proctable</code>，取出 <code>UNUSED</code> 的空闲进程</li>
+<li>申请 <code>pagetable</code>，初始化页表映射与 <code>trap</code></li>
+<li>初始化 <code>context</code>，用于进程调度</li>
+</ol>
+<p>而 <code>freeproc</code> 把申请的资源全部释放即可</p>
+<h2 class="heading" id="切换进程">
+  切换进程
+  <a class="anchor" href="#%e5%88%87%e6%8d%a2%e8%bf%9b%e7%a8%8b">#</a>
+</h2>
+<p>设计进程抽象的动机是 CPU 调度，而 <code>scheduler</code> 依赖的核心机制就是 <em><strong>上下文切换</strong></em></p>
+<p>每个 CPU 都在不间断的运行调度器 <code>scheduler</code>，收到中断时调用 <code>yield</code> 让出 CPU 进行调度</p>
+<p>这一逻辑由三层构成：</p>
+<ol>
+<li><code>scheduler</code>：找到状态为 <code>RUNNABLE</code> 的进程</li>
+<li><code>sched</code>：proc 与 <code>scheduler</code> 间切换的胶水函数</li>
+<li><code>swtch</code>：保存与替换寄存器内容，切换程序流</li>
+</ol>
+<blockquote>
+<p><code>swtch</code> 切换了 <code>%ra</code> 寄存器的内容，改变了 <code>ret</code> 的返回地址，因此结束后 CPU 会在新进程上运行</p>
+</blockquote>
+<p>程序是一个状态机，<code>swtch</code> 的威力就在于无缝替换了这个状态机的上下文</p>
+<p>同时 <code>scheduler</code> 与 <code>sched</code> 本身作为函数，既发挥了临界区的作用，又为重定向 <code>ret</code> 积攒了势能</p>
+<p>这样的设计为进程提供了独占 CPU 的假象——<code>swtch</code>结束后，寄存器等资源不变，程序会从之前 trap 的地方继续执行，整个调度过程对用户完全透明</p>
+<hr>
+<p>要注意到，我们已经假设 <code>swtch</code> 到是一个执行到一半的旧进程，逻辑上必须存在<strong>第二个进程</strong></p>
+<p>可是创建进程时，它可从来没有被执行过，如何设置新进程的上下文呢？</p>
+<p>我们选择捏造一个进程 <code>forkret</code>，假装在此之前一直是它在工作，调度后会先从 <code>forkret</code> 执行</p>
+<p>而 <code>forkret</code> 什么都不做，只是 <code>trap</code> 回到用户态，从新进程的第一条指令开始执行</p>
+<p>实际上每个 proc 都是先 <code>trap</code> 到内核态，在 <code>scheduler</code> 内部被踢走的，所以 <code>forkret</code> 才要调用 <code>usertrap</code></p>
+<hr>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 607; --h: 524;">
+        <img loading="lazy" alt="调度过程" src="/posts/%E9%87%8D%E8%AF%BB-xv6/ii/assets/real-switch.png" width="607" height="524">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 调度过程 </figcaption>
+    </div>
+    
+</figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 563; --h: 642;">
+        <img loading="lazy" alt="用户视角下的调度过程" src="/posts/%E9%87%8D%E8%AF%BB-xv6/ii/assets/user-switch.png" width="563" height="642">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 用户视角下的调度过程 </figcaption>
+    </div>
+    
+</figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<figure class="">
+
+    <div class="img-container" style="--w: 531; --h: 531;">
+        <img loading="lazy" alt="新进程的调度过程" src="/posts/%E9%87%8D%E8%AF%BB-xv6/ii/assets/new-switch.png" width="531" height="531">
+    </div>
+
+    
+    <div class="caption-container">
+        <figcaption> 新进程的调度过程 </figcaption>
+    </div>
+    
+</figure>
+</p>
+<h2 class="heading" id="主动调度">
+  主动调度
+  <a class="anchor" href="#%e4%b8%bb%e5%8a%a8%e8%b0%83%e5%ba%a6">#</a>
+</h2>
+<p>等待 lock 时，进程可能会主动选择休眠，让出 CPU，此时状态转为 <code>SLEEPING</code></p>
+<p>这一套 <code>sleep-wakeup</code> 的逻辑，简单遍历 <code>proctable</code> 即可实现</p>
+<h2 class="heading" id="进程树">
+  进程树
+  <a class="anchor" href="#%e8%bf%9b%e7%a8%8b%e6%a0%91">#</a>
+</h2>
+<p>每个进程都是 <code>init proc</code> 直接或间接 <code>fork</code> 得到的，这也是我们在 I 中称其为 <em>&ldquo;dummy porc&rdquo;</em> 的原因，它是所有进程的祖先</p>
+<p>这里我们只需要讨论三个函数：</p>
+<ol>
+<li><code>wait</code> 循环扫描 <code>proctable</code>，等待指定的子进程变为<code>ZOMBIE</code>，返回并释放结束的子进程</li>
+<li><code>kill</code> 标记进程应该被删除，没有立刻删除的能力，需要内核程序不间断地进行自我检查</li>
+<li><code>exit</code> 关闭进程，并把状态标记为 <code>ZOMBIE</code>，等待上层清理</li>
+</ol>
+<p>注意到一个有趣的事实，<code>exit</code> 并不负责释放资源，而是交给 <code>parent</code> 进程释放，同时 <code>exit</code> 会将剩余的子节点全部移交给 <code>init</code></p>
+<blockquote>
+<p>exit 必须获取锁，防止父子进程同时死亡，否则就没人给 <code>child proc</code> 收尸了</p>
+</blockquote>
+<p>因此 <code>init proc</code> 成为了事实上的垃圾回收者，循环执行 <code>wait</code> 以释放无主的 <code>proctable</code> 资源</p>
+<hr>
+<p>这一节，我们回答了以下问题：</p>
+<ol>
+<li>进程是如何被创建的？</li>
+<li>OS 怎么将调度过程透明化的？</li>
+<li>OS 如何自动管理进程资源？</li>
+</ol>
+
+    </div>
+  </article>
+
+  
+
+  
+
+  
+  
+
+<div class="single-pagination">
+    <hr />
+
+    <div class="flexnowrap">
+
+        <div class="single-pagination-prev">
+            
+            <div class="single-pagination-container-prev">
+                <div class="single-pagination-text">←</div>
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/i/">
+                        重读 xv6（I）
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="single-pagination-next">
+            
+            <div class="single-pagination-container-next">
+                <div class="single-pagination-text">
+                    <a href="/posts/%E9%87%8D%E8%AF%BB-xv6/iii/">
+                        重读 xv6（III）
+                    </a>
+                </div>
+                <div class="single-pagination-text">→</div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <hr />
+</div>
+
+
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
+
+
+    </main>
+  </div>
+
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
+</body>
+
+<script src="/js/theme-switch.js"></script>
+<script defer src="/js/copy-code.js"></script>
+</html>

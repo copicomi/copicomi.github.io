@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Ml on Anri’s blog</title>
+    <link>https://copicomi.github.io/tags/ml/</link>
+    <description>Recent content in Ml on Anri’s blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 04 Sep 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://copicomi.github.io/tags/ml/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>演化的支点</title>
+      <link>https://copicomi.github.io/posts/d2l/</link>
+      <pubDate>Fri, 04 Sep 2026 00:00:00 +0000</pubDate>
+      <guid>https://copicomi.github.io/posts/d2l/</guid>
+      <description>《Dive into Deep Learning》笔记</description>
+    </item>
+  </channel>
+</rss>
